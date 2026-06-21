@@ -11,9 +11,11 @@ function mapRow(row: Record<string, unknown>): ComplaintRow {
     channel: (row['channel'] ?? null) as ComplaintRow['channel'],
     severity: row['severity'] as ComplaintRow['severity'],
     status: row['status'] as ComplaintRow['status'],
+    category: (row['category'] ?? null) as string | null,
     customer_id: (row['customer_id'] ?? null) as string | null,
     notes: (row['notes'] ?? null) as string | null,
     resolved_at: (row['resolved_at'] ?? null) as string | null,
+    received_at: (row['received_at'] ?? '') as string,
     created_at: (row['created_at'] ?? '') as string,
     updated_at: (row['updated_at'] ?? '') as string,
   }
@@ -69,6 +71,18 @@ export function supabaseComplaintsStore(db: SupabaseClient): ComplaintStore {
         .select('*', { count: 'exact', head: true })
         .eq('workspace_id', workspaceId)
       if (error) throw new Error(`complaints countForWorkspace: ${error.message}`)
+      return count ?? 0
+    },
+
+    async countByCategorySince(workspaceId, category, sinceIso) {
+      const { count, error } = await db
+        .from('complaints')
+        .select('*', { count: 'exact', head: true })
+        .eq('workspace_id', workspaceId)
+        .eq('category', category)
+        .gte('received_at', sinceIso)
+        .neq('status', 'closed')
+      if (error) throw new Error(`complaints countByCategorySince: ${error.message}`)
       return count ?? 0
     },
   }

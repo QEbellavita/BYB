@@ -24,7 +24,7 @@ export function createComplaintsService(deps: ServiceDeps): ComplaintService {
     if (!validation.ok) {
       throw Object.assign(new Error('Validation failed'), { errors: validation.errors })
     }
-    const { description, channel, severity, customerId, notes } = validation.value
+    const { description, channel, severity, category, customerId, notes } = validation.value
 
     const n = (await store.countForWorkspace(ctx.workspaceId)) + 1
     const reference = 'C-' + String(n).padStart(3, '0')
@@ -36,9 +36,11 @@ export function createComplaintsService(deps: ServiceDeps): ComplaintService {
       channel: channel ?? null,
       severity: severity ?? 'low',
       status: 'new',
+      category: category ?? null,
       customer_id: customerId ?? null,
       notes: notes ?? null,
       resolved_at: null,
+      received_at: new Date().toISOString(),
     })
 
     await publish({

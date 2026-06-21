@@ -20,9 +20,11 @@ function makeRow(overrides: Partial<ComplaintRow> = {}): ComplaintRow {
     channel: null,
     severity: 'low',
     status: 'new',
+    category: null,
     customer_id: null,
     notes: null,
     resolved_at: null,
+    received_at: '2024-01-01T00:00:00Z',
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
     ...overrides,
@@ -57,6 +59,13 @@ function makeFakeStore(rows: ComplaintRow[] = []): ComplaintStore {
     },
     async countForWorkspace(workspaceId) {
       return store.filter(r => r.workspace_id === workspaceId).length
+    },
+    async countByCategorySince(workspaceId, category, sinceIso) {
+      return store.filter(r =>
+        r.workspace_id === workspaceId &&
+        r.category === category &&
+        r.received_at >= sinceIso
+      ).length
     },
   }
 }
@@ -280,5 +289,38 @@ describe('createComplaintsService', () => {
       to_id: 'proc-1',
       relation: 'concerns',
     }))
+  })
+
+  it('create: persists category when provided', async () => {
+    const store = makeFakeStore()
+    const publish = vi.fn(async () => {})
+    const linkStore = makeFakeLinkStore()
+
+    const svc = createComplaintsService({ store, publish, links, linkStore })
+    const row = await svc.create(ctx, { description: 'Billing issue', category: 'billing' })
+
+    expect(row.category).toBe('billing')
+  })
+
+  it('create: stores null for category when not provided', async () => {
+    const store = makeFakeStore()
+    const publish = vi.fn(async () => {})
+    const linkStore = makeFakeLinkStore()
+
+    const svc = createComplaintsService({ store, publish, links, linkStore })
+    const row = await svc.create(ctx, { description: 'General complaint' })
+
+    expect(row.category).toBeNull()
+  })
+
+  it('create: stores null for category when empty string provided', async () => {
+    const store = makeFakeStore()
+    const publish = vi.fn(async () => {})
+    const linkStore = makeFakeLinkStore()
+
+    const svc = createComplaintsService({ store, publish, links, linkStore })
+    const row = await svc.create(ctx, { description: 'Whitespace category', category: '   ' })
+
+    expect(row.category).toBeNull()
   })
 })

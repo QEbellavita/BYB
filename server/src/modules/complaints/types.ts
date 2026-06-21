@@ -13,6 +13,7 @@ export interface ComplaintInput {
   channel?: ComplaintChannel
   severity?: ComplaintSeverity
   status?: ComplaintStatus
+  category?: string | null
   customerId?: string
   notes?: string
 }
@@ -26,9 +27,11 @@ export interface ComplaintRow {
   channel: ComplaintChannel | null
   severity: ComplaintSeverity
   status: ComplaintStatus
+  category: string | null
   customer_id: string | null
   notes: string | null
   resolved_at: string | null
+  received_at: string
   created_at: string
   updated_at: string
 }
@@ -39,6 +42,7 @@ export interface ComplaintStore {
   update(id: string, patch: Partial<ComplaintRow> & { version: number; updated_at: string }): Promise<ComplaintRow>
   getById(id: string): Promise<ComplaintRow | null>
   countForWorkspace(workspaceId: string): Promise<number>
+  countByCategorySince(workspaceId: string, category: string, sinceIso: string): Promise<number>
 }
 
 export interface ComplaintServiceContext {

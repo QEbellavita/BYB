@@ -20,6 +20,10 @@ import { createRiskManifest } from './modules/risk/manifest.js'
 import { supabaseComplaintsStore } from './modules/complaints/supabase-store.js'
 import { createComplaintsService } from './modules/complaints/service.js'
 import { createComplaintsManifest } from './modules/complaints/manifest.js'
+import { supabaseImprovementsStore } from './modules/improvements/supabase-store.js'
+import { createImprovementService } from './modules/improvements/service.js'
+import { createImprovementsManifest } from './modules/improvements/manifest.js'
+import { registerImprovementSubscriber } from './modules/improvements/subscriber.js'
 import { links } from './context/links.js'
 import { makePublish } from './events/publish.js'
 import { registerModules } from './modules/loader.js'
@@ -158,6 +162,7 @@ export function createApp(config?: AppConfig): express.Express {
     const eventStore = supabaseEventStore(service)
     const publish = makePublish(service, eventStore, registry)
     const linkStore = supabaseLinkStore(service)
+    // Note: registerImprovementSubscriber called after stores are built below
 
     // ---- Risk module ----
     const riskStore = supabaseRiskStore(service)
@@ -166,6 +171,17 @@ export function createApp(config?: AppConfig): express.Express {
     // ---- Complaints module ----
     const complaintsStore = supabaseComplaintsStore(service)
     const complaintsService = createComplaintsService({ store: complaintsStore, publish, links, linkStore })
+
+    // ---- Improvements module ----
+    const improvementsStore = supabaseImprovementsStore(service)
+    const improvementsService = createImprovementService({ store: improvementsStore })
+
+    // ---- Wire improvement subscriber (after all stores are built) ----
+    registerImprovementSubscriber(
+      registry,
+      { riskStore, complaintStore: complaintsStore, improvementStore: improvementsStore },
+      () => new Date(),
+    )
 
     // ---- Register modules ----
     const manifest = createOnboardingManifest({
@@ -188,7 +204,13 @@ export function createApp(config?: AppConfig): express.Express {
       workspace: workspaceDeps,
     })
 
-    registerModules(app, [manifest, riskManifest, complaintsManifest], { isEnabled })
+    const improvementsManifest = createImprovementsManifest({
+      service: improvementsService,
+      auth: authDeps,
+      workspace: workspaceDeps,
+    })
+
+    registerModules(app, [manifest, riskManifest, complaintsManifest, improvementsManifest], { isEnabled })
   }
   return app
 }

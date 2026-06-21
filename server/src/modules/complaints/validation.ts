@@ -24,6 +24,14 @@ export function validateComplaint(input: unknown): ValidationResult<ComplaintInp
   const severity: ComplaintSeverity = (raw['severity'] as ComplaintSeverity | undefined) ?? 'low'
   const status: ComplaintStatus = (raw['status'] as ComplaintStatus | undefined) ?? 'new'
 
+  // Category: optional; trim and coerce empty string to null
+  const categoryRaw = raw['category']
+  let category: string | null = null
+  if (typeof categoryRaw === 'string') {
+    const trimmed = categoryRaw.trim()
+    category = trimmed.length > 0 ? trimmed : null
+  }
+
   return {
     ok: true,
     value: {
@@ -33,6 +41,7 @@ export function validateComplaint(input: unknown): ValidationResult<ComplaintInp
       channel: channelRaw as ComplaintChannel | undefined,
       severity,
       status,
+      category,
       customerId: raw['customerId'] as string | undefined,
       notes: raw['notes'] as string | undefined,
     },
