@@ -12,7 +12,7 @@ insert into workspace_members (workspace_id, user_id, role) values
 insert into workspace_invites (workspace_id, email, role, token, invited_by) values
   ('dddddddd-0000-0000-0000-000000000001','invitee@test.dev','manager','tok-123',
    '00000000-0000-0000-0000-0000000000d1'),
-  ('dddddddd-0000-0000-0000-000000000001','invitee@test.dev','staff','tok-456',
+  ('dddddddd-0000-0000-0000-000000000001','victim@test.dev','staff','tok-456',
    '00000000-0000-0000-0000-0000000000d1');
 
 -- act as the invitee redeeming the token

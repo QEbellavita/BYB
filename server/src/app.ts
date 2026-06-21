@@ -2,11 +2,155 @@ import express from 'express'
 import { healthRouter } from './routes/health.js'
 import { meRouter } from './routes/me.js'
 import type { AppConfig } from './config.js'
+import { anonClient, userScopedClient, serviceClient } from './supabase.js'
+import { requireAuth } from './middleware/require-auth.js'
+import { supabaseMembershipLookup } from './middleware/require-workspace.js'
+import { supabaseHubStore } from './context/supabase-store.js'
+import { supabaseOnboardingCompletionStore, setOnboardingStore } from './context/index.js'
+import { ContextHub } from './context/index.js'
+import { createOnboardingService } from './modules/onboarding/service.js'
+import { supabaseOnboardingStore } from './modules/onboarding/supabase-store.js'
+import { createOnboardingManifest } from './modules/onboarding/manifest.js'
+import { bootstrapRouter } from './modules/onboarding/routes.js'
+import { registerModules } from './modules/loader.js'
+import { consoleTransport, createEmailService } from './services/email.js'
+import type { BootstrapWorkspace } from './modules/onboarding/routes.js'
 
 export function createApp(config?: AppConfig): express.Express {
   const app = express()
   app.use(express.json())
   app.use(healthRouter)
-  if (config) app.use(meRouter(config))
+  if (config) {
+    app.use(meRouter(config))
+
+    // ---- Supabase clients ----
+    const anon = anonClient(config)
+    const service = serviceClient(config)
+
+    // ---- Auth deps (shared) ----
+    const authDeps = {
+      getUser: async (token: string) => {
+        const { data, error } = await anon.auth.getUser(token)
+        if (error || !data.user) return null
+        return { id: data.user.id, email: data.user.email ?? null }
+      },
+    }
+
+    // ---- Workspace membership deps ----
+    const workspaceDeps = {
+      getMembership: supabaseMembershipLookup(config),
+    }
+
+    // ---- Completion store (service-role — calls the secure RPC) ----
+    const completionStore = supabaseOnboardingCompletionStore(service)
+    setOnboardingStore(completionStore)
+
+    // ---- Email service ----
+    const emailService = createEmailService(consoleTransport)
+
+    // ---- Bootstrap route — GET /api/onboarding/bootstrap ----
+    // Queries the user's visible workspaces + onboarding status via their JWT-scoped client
+    const bRouter = bootstrapRouter({
+      auth: authDeps,
+      getUserWorkspaces: async (accessToken): Promise<BootstrapWorkspace[]> => {
+        const db = userScopedClient(config, accessToken)
+        // Query workspace_members to get workspaces the user belongs to
+        const { data: members, error: mErr } = await db
+          .from('workspace_members')
+          .select('workspace_id, role, workspaces(id, name)')
+        if (mErr) throw new Error(`bootstrap members: ${mErr.message}`)
+        if (!members) return []
+
+        const results: BootstrapWorkspace[] = []
+        for (const m of members as Record<string, unknown>[]) {
+          const ws = m.workspaces as Record<string, unknown> | null
+          if (!ws) continue
+          const workspaceId = ws.id as string
+          // Check onboarding status
+          const { data: session } = await db
+            .from('onboarding_sessions')
+            .select('status')
+            .eq('workspace_id', workspaceId)
+            .maybeSingle()
+          let onboardingStatus: BootstrapWorkspace['onboardingStatus'] = 'not_started'
+          if (session) {
+            const st = (session as Record<string, unknown>).status as string
+            onboardingStatus = st === 'completed' ? 'completed' : 'in_progress'
+          }
+          results.push({
+            id: workspaceId,
+            name: ws.name as string,
+            role: m.role as string,
+            onboardingStatus,
+          })
+        }
+        return results
+      },
+    })
+    app.use(bRouter)
+
+    // ---- Feature registry isEnabled ----
+    // Uses service client to check workspace_features (admins manage these, service bypasses RLS)
+    const isEnabled = async (workspaceId: string, moduleId: string, _accessToken: string): Promise<boolean> => {
+      const { data, error } = await service
+        .from('workspace_features')
+        .select('enabled')
+        .eq('workspace_id', workspaceId)
+        .eq('module_id', moduleId)
+        .maybeSingle()
+      if (error || !data) return false
+      return (data as Record<string, unknown>).enabled === true
+    }
+
+    // ---- Per-request onboarding service factory ----
+    // We create a single shared service; per-request RLS is handled at the store level
+    // by using userScopedClient inside route handlers for bootstrap, and the shared
+    // hubStore + onboardingStore use service-role (safe since routes enforce auth+admin gate)
+    const hubStore = supabaseHubStore(service)
+
+    const onboardingStore = supabaseOnboardingStore(service)
+
+    const onboardingService = createOnboardingService({
+      hub: ContextHub,
+      hubStore,
+      onboardingStore,
+      completionStore,
+      sendInvite: async (invite) => {
+        await emailService.send(
+          invite.email,
+          'You have been invited to a workspace',
+          'You have been invited to join workspace {{workspaceId}}. Your invite token is {{token}}.',
+          { workspaceId: invite.workspaceId, token: invite.token }
+        )
+      },
+    })
+
+    // ---- Workspace creation helper ----
+    const createWorkspaceAction = async (accessToken: string, name: string) => {
+      // Call create_workspace via user JWT-scoped client (RLS enforces auth, function is security definer)
+      const db = userScopedClient(config, accessToken)
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      const { data, error } = await db.rpc('create_workspace', { p_name: name, p_slug: slug })
+      if (error) throw new Error(`create_workspace: ${error.message}`)
+      const ws = data as Record<string, unknown>
+      const workspaceId = ws.id as string
+      // Insert workspace_features for the onboarding module
+      await service
+        .from('workspace_features')
+        .insert({ workspace_id: workspaceId, module_id: 'onboarding', enabled: true, enabled_at: new Date().toISOString() })
+      return { workspaceId }
+    }
+
+    // ---- Register modules ----
+    const manifest = createOnboardingManifest({
+      service: onboardingService,
+      auth: authDeps,
+      workspace: workspaceDeps,
+      onboardingStore,
+      createWorkspace: createWorkspaceAction,
+    })
+
+    registerModules(app, [manifest], { isEnabled })
+  }
   return app
 }

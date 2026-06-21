@@ -5,5 +5,6 @@ export interface ModuleManifest {
   name: string
   dependsOn: string[]
   defaultEnabled: boolean
+  gateExempt?: { method: string; path: string }[]
   register(router: Router): void
 }

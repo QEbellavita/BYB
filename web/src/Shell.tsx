@@ -32,8 +32,18 @@ const MODULE_COPY: Record<string, { tagline: string }> = {
 export function Shell({ fetchMe, onSignOut }: { fetchMe: () => Promise<Me>; onSignOut: () => void }) {
   const [me, setMe] = useState<Me | null>(null)
   const [active, setActive] = useState('hub')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { fetchMe().then(setMe).catch(() => setMe(null)) }, [fetchMe])
+  useEffect(() => {
+    setLoading(true)
+    fetchMe()
+      .then((data) => { setMe(data); setLoading(false) })
+      .catch(() => { setError('Could not load your account'); setLoading(false) })
+  }, [fetchMe])
+
+  if (loading) return <p>Loading your workspace…</p>
+  if (error) return <p aria-live="assertive">{error}</p>
 
   const initials = (me?.email ?? 'b y').slice(0, 2).toUpperCase()
   const activeItem = NAV.find((n) => n.id === active) ?? NAV[0]

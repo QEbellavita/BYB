@@ -18,10 +18,15 @@ export function Login({
     e.preventDefault()
     setBusy(true)
     setErr(null)
-    const { error } = await signInWithOtp(email)
-    setBusy(false)
-    if (error) setErr('We couldn’t send that code. Check the address and try again.')
-    else setSent(true)
+    try {
+      const { error } = await signInWithOtp(email)
+      if (error) setErr('We couldn’t send that code. Check the address and try again.')
+      else setSent(true)
+    } catch {
+      setErr('We couldn’t send that code. Check the address and try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -74,7 +79,9 @@ export function Login({
                   onChange={(e) => setEmail(e.target.value)}
                   className="auth__input"
                 />
-                {err && <p className="auth__err" role="alert">{err}</p>}
+                <div aria-live="polite">
+                  {err && <p className="auth__err" role="alert">{err}</p>}
+                </div>
                 <button type="submit" className="btn btn--primary auth__submit" disabled={busy}>
                   {busy ? 'Sending…' : <>Send code <span className="arrow">→</span></>}
                 </button>
