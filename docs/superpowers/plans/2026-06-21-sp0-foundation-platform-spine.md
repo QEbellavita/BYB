@@ -59,7 +59,6 @@ byb-platform/
       modules/
         types.ts                    # ModuleManifest type
         loader.ts                   # topo-sort + mount + feature gating
-        sample/manifest.ts          # a trivial module used only to test the loader
       services/
         email.ts                    # render + send (console transport in dev)
       routes/
@@ -1258,7 +1257,7 @@ git commit -m "feat: workspace invites with RLS and redeem RPC"
 ### Task 11: Module loader + feature registry
 
 **Files:**
-- Create: `supabase/migrations/0006_feature_registry.sql`, `server/src/modules/types.ts`, `server/src/modules/loader.ts`, `server/src/modules/sample/manifest.ts`, `server/test/loader.test.ts`
+- Create: `supabase/migrations/0006_feature_registry.sql`, `server/src/modules/types.ts`, `server/src/modules/loader.ts`, `server/test/loader.test.ts`
 
 **Interfaces:**
 - Consumes: `requireWorkspace` shape (`req.workspaceId`), Express `Router`.
@@ -1383,6 +1382,9 @@ export function orderModules(manifests: ModuleManifest[]): ModuleManifest[] {
   return ordered
 }
 
+// NOTE: registerModules is exercised by loader.test.ts (inline manifests) and
+// wired into app.ts in SP-1+ when the first real feature module exists.
+
 export interface RegisterDeps {
   isEnabled: (workspaceId: string, moduleId: string) => Promise<boolean>
 }
@@ -1404,21 +1406,6 @@ export function registerModules(app: Express, manifests: ModuleManifest[], deps:
 }
 ```
 
-`server/src/modules/sample/manifest.ts` (proves the pattern; removed once real modules land):
-```ts
-import type { ModuleManifest } from '../types.js'
-
-export const sampleModule: ModuleManifest = {
-  id: 'sample',
-  name: 'Sample',
-  dependsOn: [],
-  defaultEnabled: false,
-  register(router) {
-    router.get('/ping', (_req, res) => res.json({ module: 'sample' }))
-  },
-}
-```
-
 - [ ] **Step 5: Run to verify it passes**
 
 Run: `npm run db:reset && npm run db:test && npm run test:server`
@@ -1427,7 +1414,7 @@ Expected: PASS — `orderModules` (3) and gating (2) cases; all pgTAP tests pass
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/0006_feature_registry.sql server/src/modules/types.ts server/src/modules/loader.ts server/src/modules/sample/manifest.ts server/test/loader.test.ts
+git add supabase/migrations/0006_feature_registry.sql server/src/modules/types.ts server/src/modules/loader.ts server/test/loader.test.ts
 git commit -m "feat: module loader with topo-sort and per-workspace feature gating"
 ```
 
@@ -1690,7 +1677,7 @@ git commit -m "ci: run unit tests and the pgTAP RLS isolation gate"
 - "React SPA shell + auth" → Task 12. ✓
 - "platform-service scaffolds (AI gateway, storage, notifications, scheduler)" → **notifications built (Task 9)**; AI gateway/storage/scheduler **explicitly deferred** to their first consumer (Global Constraints) to avoid untested placeholders. Noted deviation, not a silent gap.
 
-**2. Placeholder scan:** No "TBD"/"add error handling"/"similar to Task N". Every code step shows complete code; the `sample` module is a real (tiny) tested artifact, labelled as removable once real modules land. ✓
+**2. Placeholder scan:** No "TBD"/"add error handling"/"similar to Task N". Every code step shows complete code. The module loader is exercised by its own test with inline manifests (no dead sample module); `registerModules` is wired into `app.ts` in SP-1+ when the first real module lands. ✓
 
 **3. Type/name consistency:** `requireAuth`/`requireWorkspace`/`requirePermission`, `resolvePermissions`, `roleDefaults`, `Membership`, `ModuleManifest`, `orderModules`/`registerModules`, `renderTemplate`/`createEmailService`, `userScopedClient`, `create_workspace`/`redeem_invite`/`is_workspace_member` are used identically across tasks. `req.user`/`req.accessToken`/`req.workspaceId`/`req.member` augmentations are declared where introduced and consumed downstream. ✓
 
