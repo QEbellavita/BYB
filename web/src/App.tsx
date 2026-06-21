@@ -132,6 +132,8 @@ export function App() {
         <Shell
           fetchMe={async () => ({ id: 'demo', email: 'owner@coastlineplumbing.com.au' })}
           onSignOut={() => go('/')}
+          token=""
+          workspaceId=""
         />
       )
     }
@@ -164,6 +166,8 @@ export function App() {
     <Shell
       fetchMe={() => apiFetch('/api/me', session.access_token)}
       onSignOut={() => supabase.auth.signOut()}
+      token={session.access_token}
+      workspaceId={workspaceId ?? ''}
     />
   )
 }

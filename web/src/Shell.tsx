@@ -29,7 +29,14 @@ const MODULE_COPY: Record<string, { tagline: string }> = {
   reports: { tagline: 'Dashboards and weekly reports drawn straight from the Context Hub.' },
 }
 
-export function Shell({ fetchMe, onSignOut }: { fetchMe: () => Promise<Me>; onSignOut: () => void }) {
+export interface ShellProps {
+  fetchMe: () => Promise<Me>
+  onSignOut: () => void
+  token?: string
+  workspaceId?: string
+}
+
+export function Shell({ fetchMe, onSignOut, token, workspaceId }: ShellProps) {
   const [me, setMe] = useState<Me | null>(null)
   const [active, setActive] = useState('hub')
   const [loading, setLoading] = useState(true)
@@ -112,7 +119,9 @@ export function Shell({ fetchMe, onSignOut }: { fetchMe: () => Promise<Me>; onSi
 
         <main className="canvas">
           {active === 'hub' && <ContextHubPage onOpen={setActive} />}
-          {active === 'risk' && <RiskPage />}
+          {active === 'risk' && (
+            <RiskPage token={token ?? ''} workspaceId={workspaceId ?? ''} />
+          )}
           {active !== 'hub' && active !== 'risk' && (
             <ModulePage
               code={activeItem.code}
