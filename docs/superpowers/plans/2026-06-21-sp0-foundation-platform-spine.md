@@ -1278,7 +1278,7 @@ git commit -m "feat: workspace invites with RLS and redeem RPC"
 ### Task 11: Module loader + feature registry
 
 **Files:**
-- Create: `supabase/migrations/0006_feature_registry.sql`, `server/src/modules/types.ts`, `server/src/modules/loader.ts`, `server/test/loader.test.ts`
+- Create: `supabase/migrations/0006_feature_registry.sql`, `supabase/tests/tenant_isolation_test.sql`, `server/src/modules/types.ts`, `server/src/modules/loader.ts`, `server/test/loader.test.ts`
 
 **Interfaces:**
 - Consumes: `requireWorkspace` shape (`req.workspaceId`), Express `Router`.
@@ -1360,6 +1360,50 @@ create policy features_rw on workspace_features for all
   with check (public.is_workspace_member(workspace_id));
 ```
 
+- [ ] **Step 3b: Write the cross-tenant isolation test for the remaining tenant tables**
+
+The Global Constraint requires every tenant table to ship with a passing pgTAP isolation test. `workspaces` is covered by `rls_isolation_test.sql` (Task 3); this adds coverage for `workspace_members`, `workspace_invites`, and `workspace_features`.
+
+`supabase/tests/tenant_isolation_test.sql`:
+```sql
+-- tenant_isolation_test.sql — cross-tenant isolation for members/invites/features
+begin;
+select plan(3);
+
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000e1','e1@test.dev'),
+  ('00000000-0000-0000-0000-0000000000e2','e2@test.dev');
+insert into workspaces (id, name, slug) values
+  ('eeeeeeee-0000-0000-0000-000000000001','E1 Co','e1-co'),
+  ('eeeeeeee-0000-0000-0000-000000000002','E2 Co','e2-co');
+insert into workspace_members (workspace_id, user_id, role) values
+  ('eeeeeeee-0000-0000-0000-000000000001','00000000-0000-0000-0000-0000000000e1','owner'),
+  ('eeeeeeee-0000-0000-0000-000000000002','00000000-0000-0000-0000-0000000000e2','owner');
+insert into workspace_invites (workspace_id, email, role, token, invited_by) values
+  ('eeeeeeee-0000-0000-0000-000000000002','x@test.dev','staff','tok-e2',
+   '00000000-0000-0000-0000-0000000000e2');
+insert into workspace_features (workspace_id, module_id, enabled) values
+  ('eeeeeeee-0000-0000-0000-000000000002','risk', true);
+
+-- act as user E1 (only a member of workspace E1)
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000e1","role":"authenticated"}';
+
+select is(
+  (select count(*)::int from workspace_members
+   where workspace_id = 'eeeeeeee-0000-0000-0000-000000000002'),
+  0, 'E1 cannot see E2 workspace_members');
+select is(
+  (select count(*)::int from workspace_invites),
+  0, 'E1 cannot see E2 workspace_invites');
+select is(
+  (select count(*)::int from workspace_features),
+  0, 'E1 cannot see E2 workspace_features');
+
+select * from finish();
+rollback;
+```
+
 - [ ] **Step 4: Implement the types and loader**
 
 `server/src/modules/types.ts`:
@@ -1430,13 +1474,13 @@ export function registerModules(app: Express, manifests: ModuleManifest[], deps:
 - [ ] **Step 5: Run to verify it passes**
 
 Run: `npm run db:reset && npm run db:test && npm run test:server`
-Expected: PASS — `orderModules` (3) and gating (2) cases; all pgTAP tests pass.
+Expected: PASS — `orderModules` (3) and gating (2) server cases; pgTAP `tenant_isolation_test` 3/3 and all earlier pgTAP tests still pass.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/0006_feature_registry.sql server/src/modules/types.ts server/src/modules/loader.ts server/test/loader.test.ts
-git commit -m "feat: module loader with topo-sort and per-workspace feature gating"
+git add supabase/migrations/0006_feature_registry.sql supabase/tests/tenant_isolation_test.sql server/src/modules/types.ts server/src/modules/loader.ts server/test/loader.test.ts
+git commit -m "feat: module loader, feature registry, and tenant isolation tests"
 ```
 
 ---
