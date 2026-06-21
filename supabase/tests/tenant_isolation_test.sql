@@ -25,11 +25,15 @@ select is(
   (select count(*)::int from workspace_members
    where workspace_id = 'eeeeeeee-0000-0000-0000-000000000002'),
   0, 'E1 cannot see E2 workspace_members');
+-- filter to E2's workspace so each assertion robustly proves
+-- "E1 sees 0 of the OTHER tenant's rows"
 select is(
-  (select count(*)::int from workspace_invites),
+  (select count(*)::int from workspace_invites
+   where workspace_id = 'eeeeeeee-0000-0000-0000-000000000002'),
   0, 'E1 cannot see E2 workspace_invites');
 select is(
-  (select count(*)::int from workspace_features),
+  (select count(*)::int from workspace_features
+   where workspace_id = 'eeeeeeee-0000-0000-0000-000000000002'),
   0, 'E1 cannot see E2 workspace_features');
 
 select * from finish();
