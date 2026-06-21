@@ -1162,17 +1162,20 @@ git commit -m "feat: email service with safe template interpolation"
 `supabase/tests/redeem_invite_test.sql`:
 ```sql
 begin;
-select plan(2);
+select plan(3);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d1','owner@test.dev'),
-  ('00000000-0000-0000-0000-0000000000d2','invitee@test.dev');
+  ('00000000-0000-0000-0000-0000000000d2','invitee@test.dev'),
+  ('00000000-0000-0000-0000-0000000000d3','mallory@test.dev');
 insert into workspaces (id, name, slug) values
   ('dddddddd-0000-0000-0000-000000000001','D Co','d-co');
 insert into workspace_members (workspace_id, user_id, role) values
   ('dddddddd-0000-0000-0000-000000000001','00000000-0000-0000-0000-0000000000d1','owner');
 insert into workspace_invites (workspace_id, email, role, token, invited_by) values
   ('dddddddd-0000-0000-0000-000000000001','invitee@test.dev','manager','tok-123',
+   '00000000-0000-0000-0000-0000000000d1'),
+  ('dddddddd-0000-0000-0000-000000000001','invitee@test.dev','staff','tok-456',
    '00000000-0000-0000-0000-0000000000d1');
 
 -- act as the invitee redeeming the token
@@ -1189,6 +1192,14 @@ select is(
      and user_id = '00000000-0000-0000-0000-0000000000d2'),
   'manager',
   'invitee joins with the invited role'
+);
+
+-- SECURITY: a different account (wrong email) must NOT be able to redeem a token meant for someone else
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000d3","role":"authenticated"}';
+select throws_ok(
+  $$ select redeem_invite('tok-456') $$,
+  'invite is for a different email',
+  'a user whose email does not match the invite cannot redeem it'
 );
 
 select * from finish();
@@ -1223,15 +1234,24 @@ create policy invites_rw on workspace_invites for all
   using (public.is_workspace_member(workspace_id))
   with check (public.is_workspace_member(workspace_id));
 
--- redeem runs as the invitee; security definer so it can read the invite + insert membership
+-- redeem runs as the invitee; security definer so it can read the invite + insert membership.
+-- SECURITY: redemption is bound to the invited email — the caller's auth email must match
+-- the invite's email, so a leaked token cannot be redeemed by an unintended account.
+-- NOTE: invite tokens MUST be generated with a CSPRNG of sufficient entropy by the
+-- invite-CREATION flow (built in the People/onboarding sub-project), e.g.
+-- encode(gen_random_bytes(32),'base64'), so tokens cannot be enumerated.
 create or replace function public.redeem_invite(p_token text)
 returns workspaces language plpgsql security definer
 set search_path = public as $$
-declare inv workspace_invites; w workspaces;
+declare inv workspace_invites; w workspaces; u_email text;
 begin
   if auth.uid() is null then raise exception 'must be authenticated'; end if;
+  select email into u_email from auth.users where id = auth.uid();
   select * into inv from workspace_invites where token = p_token and accepted_at is null;
   if inv.id is null then raise exception 'invalid or used invite'; end if;
+  if lower(inv.email) <> lower(coalesce(u_email, '')) then
+    raise exception 'invite is for a different email';
+  end if;
   insert into workspace_members(workspace_id, user_id, role)
     values (inv.workspace_id, auth.uid(), inv.role)
     on conflict (workspace_id, user_id) do update set role = excluded.role;
