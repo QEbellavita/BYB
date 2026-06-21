@@ -1,0 +1,26 @@
+project_id = "byb-platform"
+
+[api]
+enabled = true
+port = 54331
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54332
+major_version = 15
+
+[studio]
+enabled = true
+port = 54333
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5173"
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
