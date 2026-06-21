@@ -28,7 +28,7 @@ export function orderModules(manifests: ModuleManifest[]): ModuleManifest[] {
 // wired into app.ts in SP-1+ when the first real feature module exists.
 
 export interface RegisterDeps {
-  isEnabled: (workspaceId: string, moduleId: string, accessToken: string) => Promise<boolean>
+  isEnabled: (workspaceId: string, moduleId: string, accessToken: string) => Promise<boolean | null>
 }
 
 export function registerModules(app: Express, manifests: ModuleManifest[], deps: RegisterDeps): void {
@@ -50,7 +50,10 @@ export function registerModules(app: Express, manifests: ModuleManifest[], deps:
       const authHeader = req.header('authorization') ?? ''
       const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
 
-      if (!wsId || !(await deps.isEnabled(wsId, m.id, accessToken))) {
+      // null means no explicit row — fall back to manifest.defaultEnabled
+      const explicitEnabled = wsId ? await deps.isEnabled(wsId, m.id, accessToken) : null
+      const enabled = explicitEnabled ?? m.defaultEnabled
+      if (!wsId || !enabled) {
         return res.status(404).json({ error: 'module not enabled' })
       }
       next()

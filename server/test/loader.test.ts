@@ -25,7 +25,7 @@ describe('orderModules', () => {
 })
 
 describe('registerModules gating', () => {
-  function appWith(enabled: boolean) {
+  function appWith(enabled: boolean | null) {
     const app = express()
     app.use((req, _res, next) => { req.workspaceId = 'ws1'; next() })
     registerModules(app, [mod('risk')], { isEnabled: async () => enabled })
@@ -39,6 +39,27 @@ describe('registerModules gating', () => {
     const res = await request(appWith(true)).get('/api/m/risk/ping')
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ id: 'risk' })
+  })
+  it('200s when no feature row (null) and manifest.defaultEnabled is true', async () => {
+    // mod() creates manifests with defaultEnabled:true; null = no row → falls back to defaultEnabled
+    const res = await request(appWith(null)).get('/api/m/risk/ping')
+    expect(res.status).toBe(200)
+  })
+  it('404s when no feature row (null) and manifest.defaultEnabled is false', async () => {
+    const app = express()
+    app.use((req, _res, next) => { req.workspaceId = 'ws1'; next() })
+    const disabledByDefault: ModuleManifest = {
+      id: 'beta', name: 'beta', dependsOn: [], defaultEnabled: false,
+      register(r: Router) { r.get('/ping', (_req, res) => res.json({ id: 'beta' })) },
+    }
+    registerModules(app, [disabledByDefault], { isEnabled: async () => null })
+    const res = await request(app).get('/api/m/beta/ping')
+    expect(res.status).toBe(404)
+  })
+  it('404s when explicit row is enabled:false even if defaultEnabled is true', async () => {
+    // mod() has defaultEnabled:true, but explicit row says false
+    const res = await request(appWith(false)).get('/api/m/risk/ping')
+    expect(res.status).toBe(404)
   })
 })
 
