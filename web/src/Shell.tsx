@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { WORKSPACE } from './app/data'
 import { ContextHubPage } from './app/ContextHubPage'
 import { RiskPage } from './app/RiskPage'
+import { ComplaintsPage } from './app/ComplaintsPage'
 import { ModulePage } from './app/ModulePage'
 import './app/AppChrome.css'
 
@@ -122,7 +123,10 @@ export function Shell({ fetchMe, onSignOut, token, workspaceId }: ShellProps) {
           {active === 'risk' && (
             <RiskPage token={token ?? ''} workspaceId={workspaceId ?? ''} />
           )}
-          {active !== 'hub' && active !== 'risk' && (
+          {active === 'complaints' && (
+            <ComplaintsPage token={token ?? ''} workspaceId={workspaceId ?? ''} />
+          )}
+          {active !== 'hub' && active !== 'risk' && active !== 'complaints' && (
             <ModulePage
               code={activeItem.code}
               name={activeItem.label}
