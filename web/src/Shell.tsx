@@ -3,6 +3,7 @@ import { WORKSPACE } from './app/data'
 import { ContextHubPage } from './app/ContextHubPage'
 import { RiskPage } from './app/RiskPage'
 import { ComplaintsPage } from './app/ComplaintsPage'
+import { ImprovementsPage } from './app/ImprovementsPage'
 import { ModulePage } from './app/ModulePage'
 import './app/AppChrome.css'
 
@@ -14,6 +15,7 @@ const NAV: NavItem[] = [
   { id: 'hub', label: 'Context Hub', code: 'HUB', group: 'core' },
   { id: 'risk', label: 'Risk Register', code: 'J', group: 'modules' },
   { id: 'complaints', label: 'Complaints', code: 'E', group: 'modules' },
+  { id: 'improvements', label: 'Improvements', code: 'IMP', group: 'modules' },
   { id: 'processes', label: 'Process Library', code: 'C', group: 'modules' },
   { id: 'documents', label: 'Documents', code: 'D', group: 'modules' },
   { id: 'compliance', label: 'Compliance', code: 'I', group: 'modules' },
@@ -126,7 +128,10 @@ export function Shell({ fetchMe, onSignOut, token, workspaceId }: ShellProps) {
           {active === 'complaints' && (
             <ComplaintsPage token={token ?? ''} workspaceId={workspaceId ?? ''} />
           )}
-          {active !== 'hub' && active !== 'risk' && active !== 'complaints' && (
+          {active === 'improvements' && (
+            <ImprovementsPage token={token ?? ''} workspaceId={workspaceId ?? ''} />
+          )}
+          {active !== 'hub' && active !== 'risk' && active !== 'complaints' && active !== 'improvements' && (
             <ModulePage
               code={activeItem.code}
               name={activeItem.label}
