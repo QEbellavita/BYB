@@ -17,6 +17,9 @@ import { bootstrapRouter } from './modules/onboarding/routes.js'
 import { supabaseRiskStore } from './modules/risk/supabase-store.js'
 import { createRiskService } from './modules/risk/service.js'
 import { createRiskManifest } from './modules/risk/manifest.js'
+import { supabaseComplaintsStore } from './modules/complaints/supabase-store.js'
+import { createComplaintsService } from './modules/complaints/service.js'
+import { createComplaintsManifest } from './modules/complaints/manifest.js'
 import { links } from './context/links.js'
 import { makePublish } from './events/publish.js'
 import { registerModules } from './modules/loader.js'
@@ -160,6 +163,10 @@ export function createApp(config?: AppConfig): express.Express {
     const riskStore = supabaseRiskStore(service)
     const riskService = createRiskService({ store: riskStore, publish, links, linkStore })
 
+    // ---- Complaints module ----
+    const complaintsStore = supabaseComplaintsStore(service)
+    const complaintsService = createComplaintsService({ store: complaintsStore, publish, links, linkStore })
+
     // ---- Register modules ----
     const manifest = createOnboardingManifest({
       service: onboardingService,
@@ -175,7 +182,13 @@ export function createApp(config?: AppConfig): express.Express {
       workspace: workspaceDeps,
     })
 
-    registerModules(app, [manifest, riskManifest], { isEnabled })
+    const complaintsManifest = createComplaintsManifest({
+      service: complaintsService,
+      auth: authDeps,
+      workspace: workspaceDeps,
+    })
+
+    registerModules(app, [manifest, riskManifest, complaintsManifest], { isEnabled })
   }
   return app
 }
