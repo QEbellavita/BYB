@@ -1,0 +1,248 @@
+/* ============================================================
+   BYB — "Blueprint of a business" design system
+   Warm trace-paper ground · ink linework · ochre signal ·
+   mono dimension callouts · registration-crosshair framing.
+   ============================================================ */
+
+:root {
+  /* — Palette: warm blueprint — */
+  --paper:         #ede6d6;
+  --paper-raised:  #f3ede0;
+  --paper-sunk:    #e3dac6;
+  --ink:           #15202b;
+  --ink-2:         #3c4855;
+  --ink-3:         #6b7682;
+  --line:          rgba(21, 32, 43, 0.14);
+  --line-2:        rgba(21, 32, 43, 0.28);
+  --line-faint:    rgba(21, 32, 43, 0.07);
+
+  --ochre:         #c2691a;
+  --ochre-bright:  #e08a2b;
+  --ochre-tint:    rgba(194, 105, 26, 0.10);
+  --ochre-tint-2:  rgba(194, 105, 26, 0.22);
+
+  --slate:         #4e6470;
+  --good:          #3e7a4f;
+  --good-tint:     rgba(62, 122, 79, 0.12);
+  --danger:        #b23a2e;
+  --danger-tint:   rgba(178, 58, 46, 0.12);
+
+  /* — Type — */
+  --font-display: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif;
+  --font-body:    'Hanken Grotesk', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', 'SFMono-Regular', monospace;
+
+  /* — Geometry — */
+  --r:    2px;
+  --r-lg: 3px;
+  --gutter: clamp(20px, 5vw, 56px);
+  --maxw: 1280px;
+
+  /* — Depth (kept subtle; this is a drawing, not glass) — */
+  --shadow-1: 0 1px 0 var(--line), 0 1px 2px rgba(21, 32, 43, 0.05);
+  --shadow-2: 0 1px 0 var(--line), 0 12px 30px -16px rgba(21, 32, 43, 0.22);
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--ochre-tint-2); color: var(--ink); }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.022em;
+  margin: 0;
+}
+
+a { color: inherit; text-decoration: none; }
+
+button { font-family: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--ochre);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Blueprint grid — the paper everything is drawn on
+   ============================================================ */
+.bp-grid {
+  position: relative;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--line-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-faint) 1px, transparent 1px),
+    linear-gradient(var(--line-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-faint) 1px, transparent 1px);
+  background-size:
+    120px 120px, 120px 120px, /* major */
+    24px 24px, 24px 24px;     /* minor */
+}
+
+/* ============================================================
+   Mono eyebrow / dimension callout
+   ============================================================ */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ochre);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7em;
+}
+.eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: var(--ochre);
+  display: inline-block;
+}
+.eyebrow.is-muted { color: var(--ink-3); }
+.eyebrow.is-muted::before { background: var(--line-2); }
+.eyebrow.no-rule::before { display: none; }
+
+.mono { font-family: var(--font-mono); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.btn {
+  --bg: var(--ink);
+  --fg: var(--paper-raised);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: -0.005em;
+  padding: 12px 20px;
+  border-radius: var(--r);
+  border: 1px solid var(--bg);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: transform 0.16s var(--ease), background 0.16s var(--ease),
+    color 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn .arrow { transition: transform 0.18s var(--ease); }
+.btn:hover .arrow { transform: translateX(3px); }
+
+.btn--primary { --bg: var(--ochre); --fg: #fff; border-color: var(--ochre); }
+.btn--primary:hover { --bg: var(--ochre-bright); }
+
+.btn--ghost {
+  --bg: transparent; --fg: var(--ink);
+  border-color: var(--line-2);
+}
+.btn--ghost:hover { border-color: var(--ink); background: rgba(21,32,43,0.03); }
+
+.btn--sm { padding: 8px 14px; font-size: 13px; }
+
+.lp-link-btn {
+  background: none; border: 0; cursor: pointer; padding: 0;
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 600; color: var(--ink);
+}
+.lp-link-btn:hover { color: var(--ochre); }
+
+/* ============================================================
+   Panel with registration crosshairs (the signature framing)
+   ============================================================ */
+.panel {
+  position: relative;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.panel--sunk { background: var(--paper-sunk); }
+
+/* corner registration marks */
+.xhair {
+  position: relative;
+}
+.xhair::before, .xhair::after,
+.xhair > .xhair-tr, .xhair > .xhair-br {
+  content: "";
+  position: absolute;
+  width: 9px; height: 9px;
+  pointer-events: none;
+  opacity: 0.55;
+}
+.xhair::before { /* top-left */
+  top: -1px; left: -1px;
+  border-top: 1px solid var(--ink); border-left: 1px solid var(--ink);
+}
+.xhair::after { /* bottom-right via pseudo of wrapper not enough; use bg crosses */
+  bottom: -1px; right: -1px;
+  border-bottom: 1px solid var(--ink); border-right: 1px solid var(--ink);
+}
+
+/* status dot */
+.dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block; flex: none;
+  background: var(--ink-3);
+}
+.dot--good { background: var(--good); box-shadow: 0 0 0 3px var(--good-tint); }
+.dot--ochre { background: var(--ochre); box-shadow: 0 0 0 3px var(--ochre-tint); }
+.dot--danger { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-tint); }
+
+/* tag / chip */
+.tag {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  padding: 3px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+}
+
+.container {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
+}
+
+/* utility */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
