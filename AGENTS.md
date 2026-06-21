@@ -49,7 +49,9 @@ npm run dev:web             # Vite dev server
    guard `auth.uid()`, and (for invites) bind to the invited email.
 4. **Server queries that must respect RLS** use `userScopedClient(config, accessToken)` (carries
    the user's JWT) — NOT the anon or service client.
-5. **TypeScript strict + ESM** — local imports use `.js` extensions (NodeNext). No SQLite.
+5. **TypeScript strict + ESM** — local imports use `.js` extensions. No SQLite. (Server tsconfig
+   currently uses `moduleResolution: bundler`, which tolerates the `.js` specifiers; if you switch
+   to a `tsc`-emitted prod build, move it to `NodeNext` and re-verify.)
 6. **Conventional commits.** Branch per sub-project; do not commit straight to `main` without review.
 7. **Reuse = port cleaned copies** of donor code into this repo. No runtime dependency on
    belcrm / Quantara / ncc / Cinder. BYB is independent of the Quantara emotion/biometric stack.
