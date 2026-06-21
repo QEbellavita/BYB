@@ -13,6 +13,7 @@
 - **Node** ≥ 20; **npm workspaces** monorepo (`server`, `web`; `supabase/` at root).
 - **TypeScript strict mode** end-to-end (`"strict": true`). ESM (`"type": "module"`).
 - **Native Postgres only** — no SQLite. RLS is the tenant-safety story and must be exercised in tests.
+- **Dedicated Supabase local ports** — api `54331`, db `54332`, studio `54333` (not the 54321–54323 defaults), so BYB coexists with other local Supabase projects on this machine without port collisions. `SUPABASE_URL`/`VITE_SUPABASE_URL` therefore use `127.0.0.1:54331`.
 - **Every tenant table** has a `workspace_id` column, RLS enabled, a membership-scoped policy, and a **passing pgTAP cross-tenant isolation test before merge** (non-negotiable CI gate).
 - **Roles** (Postgres enum `member_role`): `owner`, `admin`, `manager`, `compliance_officer`, `accountant`, `staff`.
 - **Conventional commits** (`feat:`, `test:`, `chore:`, `ci:`). Commit after every task.
@@ -152,11 +153,11 @@ supabase/.temp/
 ```
 # server
 PORT=3001
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:54331
 SUPABASE_ANON_KEY=replace-with-local-anon-key
 SUPABASE_SERVICE_ROLE_KEY=replace-with-local-service-role-key
 # web (Vite needs the VITE_ prefix)
-VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_URL=http://127.0.0.1:54331
 VITE_SUPABASE_ANON_KEY=replace-with-local-anon-key
 VITE_API_URL=http://127.0.0.1:3001
 ```
@@ -300,18 +301,18 @@ project_id = "byb-platform"
 
 [api]
 enabled = true
-port = 54321
+port = 54331
 schemas = ["public"]
 extra_search_path = ["public"]
 max_rows = 1000
 
 [db]
-port = 54322
+port = 54332
 major_version = 15
 
 [studio]
 enabled = true
-port = 54323
+port = 54333
 
 [auth]
 enabled = true
