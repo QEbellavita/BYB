@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run --exclude 'test/integration/**'",
+    "test:int": "node --env-file=../.env ../node_modules/.bin/vitest run test/integration"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
