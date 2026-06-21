@@ -13,6 +13,7 @@
 - **Node** ≥ 20; **npm workspaces** monorepo (`server`, `web`; `supabase/` at root).
 - **TypeScript strict mode** end-to-end (`"strict": true`). ESM (`"type": "module"`).
 - **Native Postgres only** — no SQLite. RLS is the tenant-safety story and must be exercised in tests.
+- **Dedicated Supabase local ports** — api `54331`, db `54332`, studio `54333` (not the 54321–54323 defaults), so BYB coexists with other local Supabase projects on this machine without port collisions. `SUPABASE_URL`/`VITE_SUPABASE_URL` therefore use `127.0.0.1:54331`.
 - **Every tenant table** has a `workspace_id` column, RLS enabled, a membership-scoped policy, and a **passing pgTAP cross-tenant isolation test before merge** (non-negotiable CI gate).
 - **Roles** (Postgres enum `member_role`): `owner`, `admin`, `manager`, `compliance_officer`, `accountant`, `staff`.
 - **Conventional commits** (`feat:`, `test:`, `chore:`, `ci:`). Commit after every task.
@@ -59,7 +60,6 @@ byb-platform/
       modules/
         types.ts                    # ModuleManifest type
         loader.ts                   # topo-sort + mount + feature gating
-        sample/manifest.ts          # a trivial module used only to test the loader
       services/
         email.ts                    # render + send (console transport in dev)
       routes/
@@ -153,11 +153,11 @@ supabase/.temp/
 ```
 # server
 PORT=3001
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:54331
 SUPABASE_ANON_KEY=replace-with-local-anon-key
 SUPABASE_SERVICE_ROLE_KEY=replace-with-local-service-role-key
 # web (Vite needs the VITE_ prefix)
-VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_URL=http://127.0.0.1:54331
 VITE_SUPABASE_ANON_KEY=replace-with-local-anon-key
 VITE_API_URL=http://127.0.0.1:3001
 ```
@@ -301,18 +301,18 @@ project_id = "byb-platform"
 
 [api]
 enabled = true
-port = 54321
+port = 54331
 schemas = ["public"]
 extra_search_path = ["public"]
 max_rows = 1000
 
 [db]
-port = 54322
+port = 54332
 major_version = 15
 
 [studio]
 enabled = true
-port = 54323
+port = 54333
 
 [auth]
 enabled = true
@@ -1162,17 +1162,20 @@ git commit -m "feat: email service with safe template interpolation"
 `supabase/tests/redeem_invite_test.sql`:
 ```sql
 begin;
-select plan(2);
+select plan(3);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d1','owner@test.dev'),
-  ('00000000-0000-0000-0000-0000000000d2','invitee@test.dev');
+  ('00000000-0000-0000-0000-0000000000d2','invitee@test.dev'),
+  ('00000000-0000-0000-0000-0000000000d3','mallory@test.dev');
 insert into workspaces (id, name, slug) values
   ('dddddddd-0000-0000-0000-000000000001','D Co','d-co');
 insert into workspace_members (workspace_id, user_id, role) values
   ('dddddddd-0000-0000-0000-000000000001','00000000-0000-0000-0000-0000000000d1','owner');
 insert into workspace_invites (workspace_id, email, role, token, invited_by) values
   ('dddddddd-0000-0000-0000-000000000001','invitee@test.dev','manager','tok-123',
+   '00000000-0000-0000-0000-0000000000d1'),
+  ('dddddddd-0000-0000-0000-000000000001','invitee@test.dev','staff','tok-456',
    '00000000-0000-0000-0000-0000000000d1');
 
 -- act as the invitee redeeming the token
@@ -1189,6 +1192,14 @@ select is(
      and user_id = '00000000-0000-0000-0000-0000000000d2'),
   'manager',
   'invitee joins with the invited role'
+);
+
+-- SECURITY: a different account (wrong email) must NOT be able to redeem a token meant for someone else
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000d3","role":"authenticated"}';
+select throws_ok(
+  $$ select redeem_invite('tok-456') $$,
+  'invite is for a different email',
+  'a user whose email does not match the invite cannot redeem it'
 );
 
 select * from finish();
@@ -1223,15 +1234,24 @@ create policy invites_rw on workspace_invites for all
   using (public.is_workspace_member(workspace_id))
   with check (public.is_workspace_member(workspace_id));
 
--- redeem runs as the invitee; security definer so it can read the invite + insert membership
+-- redeem runs as the invitee; security definer so it can read the invite + insert membership.
+-- SECURITY: redemption is bound to the invited email — the caller's auth email must match
+-- the invite's email, so a leaked token cannot be redeemed by an unintended account.
+-- NOTE: invite tokens MUST be generated with a CSPRNG of sufficient entropy by the
+-- invite-CREATION flow (built in the People/onboarding sub-project), e.g.
+-- encode(gen_random_bytes(32),'base64'), so tokens cannot be enumerated.
 create or replace function public.redeem_invite(p_token text)
 returns workspaces language plpgsql security definer
 set search_path = public as $$
-declare inv workspace_invites; w workspaces;
+declare inv workspace_invites; w workspaces; u_email text;
 begin
   if auth.uid() is null then raise exception 'must be authenticated'; end if;
+  select email into u_email from auth.users where id = auth.uid();
   select * into inv from workspace_invites where token = p_token and accepted_at is null;
   if inv.id is null then raise exception 'invalid or used invite'; end if;
+  if lower(inv.email) <> lower(coalesce(u_email, '')) then
+    raise exception 'invite is for a different email';
+  end if;
   insert into workspace_members(workspace_id, user_id, role)
     values (inv.workspace_id, auth.uid(), inv.role)
     on conflict (workspace_id, user_id) do update set role = excluded.role;
@@ -1258,7 +1278,7 @@ git commit -m "feat: workspace invites with RLS and redeem RPC"
 ### Task 11: Module loader + feature registry
 
 **Files:**
-- Create: `supabase/migrations/0006_feature_registry.sql`, `server/src/modules/types.ts`, `server/src/modules/loader.ts`, `server/src/modules/sample/manifest.ts`, `server/test/loader.test.ts`
+- Create: `supabase/migrations/0006_feature_registry.sql`, `supabase/tests/tenant_isolation_test.sql`, `server/src/modules/types.ts`, `server/src/modules/loader.ts`, `server/test/loader.test.ts`
 
 **Interfaces:**
 - Consumes: `requireWorkspace` shape (`req.workspaceId`), Express `Router`.
@@ -1340,6 +1360,54 @@ create policy features_rw on workspace_features for all
   with check (public.is_workspace_member(workspace_id));
 ```
 
+- [ ] **Step 3b: Write the cross-tenant isolation test for the remaining tenant tables**
+
+The Global Constraint requires every tenant table to ship with a passing pgTAP isolation test. `workspaces` is covered by `rls_isolation_test.sql` (Task 3); this adds coverage for `workspace_members`, `workspace_invites`, and `workspace_features`.
+
+`supabase/tests/tenant_isolation_test.sql`:
+```sql
+-- tenant_isolation_test.sql — cross-tenant isolation for members/invites/features
+begin;
+select plan(3);
+
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000e1','e1@test.dev'),
+  ('00000000-0000-0000-0000-0000000000e2','e2@test.dev');
+insert into workspaces (id, name, slug) values
+  ('eeeeeeee-0000-0000-0000-000000000001','E1 Co','e1-co'),
+  ('eeeeeeee-0000-0000-0000-000000000002','E2 Co','e2-co');
+insert into workspace_members (workspace_id, user_id, role) values
+  ('eeeeeeee-0000-0000-0000-000000000001','00000000-0000-0000-0000-0000000000e1','owner'),
+  ('eeeeeeee-0000-0000-0000-000000000002','00000000-0000-0000-0000-0000000000e2','owner');
+insert into workspace_invites (workspace_id, email, role, token, invited_by) values
+  ('eeeeeeee-0000-0000-0000-000000000002','x@test.dev','staff','tok-e2',
+   '00000000-0000-0000-0000-0000000000e2');
+insert into workspace_features (workspace_id, module_id, enabled) values
+  ('eeeeeeee-0000-0000-0000-000000000002','risk', true);
+
+-- act as user E1 (only a member of workspace E1)
+set local role authenticated;
+set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000e1","role":"authenticated"}';
+
+-- Each assertion filters to E2's workspace, so it robustly proves "E1 sees 0 of the
+-- OTHER tenant's rows" regardless of what E1 legitimately owns in its own workspace.
+select is(
+  (select count(*)::int from workspace_members
+   where workspace_id = 'eeeeeeee-0000-0000-0000-000000000002'),
+  0, 'E1 cannot see E2 workspace_members');
+select is(
+  (select count(*)::int from workspace_invites
+   where workspace_id = 'eeeeeeee-0000-0000-0000-000000000002'),
+  0, 'E1 cannot see E2 workspace_invites');
+select is(
+  (select count(*)::int from workspace_features
+   where workspace_id = 'eeeeeeee-0000-0000-0000-000000000002'),
+  0, 'E1 cannot see E2 workspace_features');
+
+select * from finish();
+rollback;
+```
+
 - [ ] **Step 4: Implement the types and loader**
 
 `server/src/modules/types.ts`:
@@ -1383,6 +1451,9 @@ export function orderModules(manifests: ModuleManifest[]): ModuleManifest[] {
   return ordered
 }
 
+// NOTE: registerModules is exercised by loader.test.ts (inline manifests) and
+// wired into app.ts in SP-1+ when the first real feature module exists.
+
 export interface RegisterDeps {
   isEnabled: (workspaceId: string, moduleId: string) => Promise<boolean>
 }
@@ -1404,31 +1475,16 @@ export function registerModules(app: Express, manifests: ModuleManifest[], deps:
 }
 ```
 
-`server/src/modules/sample/manifest.ts` (proves the pattern; removed once real modules land):
-```ts
-import type { ModuleManifest } from '../types.js'
-
-export const sampleModule: ModuleManifest = {
-  id: 'sample',
-  name: 'Sample',
-  dependsOn: [],
-  defaultEnabled: false,
-  register(router) {
-    router.get('/ping', (_req, res) => res.json({ module: 'sample' }))
-  },
-}
-```
-
 - [ ] **Step 5: Run to verify it passes**
 
 Run: `npm run db:reset && npm run db:test && npm run test:server`
-Expected: PASS — `orderModules` (3) and gating (2) cases; all pgTAP tests pass.
+Expected: PASS — `orderModules` (3) and gating (2) server cases; pgTAP `tenant_isolation_test` 3/3 and all earlier pgTAP tests still pass.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/0006_feature_registry.sql server/src/modules/types.ts server/src/modules/loader.ts server/src/modules/sample/manifest.ts server/test/loader.test.ts
-git commit -m "feat: module loader with topo-sort and per-workspace feature gating"
+git add supabase/migrations/0006_feature_registry.sql supabase/tests/tenant_isolation_test.sql server/src/modules/types.ts server/src/modules/loader.ts server/test/loader.test.ts
+git commit -m "feat: module loader, feature registry, and tenant isolation tests"
 ```
 
 ---
@@ -1690,7 +1746,7 @@ git commit -m "ci: run unit tests and the pgTAP RLS isolation gate"
 - "React SPA shell + auth" → Task 12. ✓
 - "platform-service scaffolds (AI gateway, storage, notifications, scheduler)" → **notifications built (Task 9)**; AI gateway/storage/scheduler **explicitly deferred** to their first consumer (Global Constraints) to avoid untested placeholders. Noted deviation, not a silent gap.
 
-**2. Placeholder scan:** No "TBD"/"add error handling"/"similar to Task N". Every code step shows complete code; the `sample` module is a real (tiny) tested artifact, labelled as removable once real modules land. ✓
+**2. Placeholder scan:** No "TBD"/"add error handling"/"similar to Task N". Every code step shows complete code. The module loader is exercised by its own test with inline manifests (no dead sample module); `registerModules` is wired into `app.ts` in SP-1+ when the first real module lands. ✓
 
 **3. Type/name consistency:** `requireAuth`/`requireWorkspace`/`requirePermission`, `resolvePermissions`, `roleDefaults`, `Membership`, `ModuleManifest`, `orderModules`/`registerModules`, `renderTemplate`/`createEmailService`, `userScopedClient`, `create_workspace`/`redeem_invite`/`is_workspace_member` are used identically across tasks. `req.user`/`req.accessToken`/`req.workspaceId`/`req.member` augmentations are declared where introduced and consumed downstream. ✓
 
