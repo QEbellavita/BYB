@@ -12,13 +12,15 @@ let workspaceId: string
 
 beforeAll(async () => {
   const admin = serviceClient(config)
-  await admin.auth.admin.createUser({ email, password, email_confirm: true })
+  const { error: createErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
+  if (createErr) throw new Error(`createUser failed: ${createErr.message}`)
   const { data, error } = await anonClient(config).auth.signInWithPassword({ email, password })
   if (error || !data.session) throw new Error(`sign-in failed: ${error?.message}`)
   token = data.session.access_token
   const db = userScopedClient(config, token)
   const { data: ws, error: wErr } = await db.rpc('create_workspace', { p_name: 'Int Co', p_slug: `int-${Date.now()}` })
   if (wErr) throw new Error(`create_workspace failed: ${wErr.message}`)
+  if (!ws || typeof ws !== 'object' || !('id' in ws)) throw new Error('create_workspace returned no workspace')
   workspaceId = (ws as { id: string }).id
 })
 
