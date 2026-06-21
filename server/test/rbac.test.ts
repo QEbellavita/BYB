@@ -8,6 +8,9 @@ describe('resolvePermissions', () => {
   it('grants wildcard to owner', () => {
     expect(resolvePermissions({ role: 'owner', permissions: {} }).has('*')).toBe(true)
   })
+  it('grants wildcard to admin', () => {
+    expect(resolvePermissions({ role: 'admin', permissions: {} }).has('*')).toBe(true)
+  })
   it('applies role defaults for compliance_officer', () => {
     const p = resolvePermissions({ role: 'compliance_officer', permissions: {} })
     expect(p.has('obligations.write')).toBe(true)
@@ -26,6 +29,15 @@ describe('requirePermission', () => {
     app.get('/x', requirePermission('risk.write'), (_req, res) => res.json({ ok: true }))
     return app
   }
+  function appWithNoMember() {
+    const app = express()
+    app.get('/x', requirePermission('risk.write'), (_req, res) => res.json({ ok: true }))
+    return app
+  }
+  it('403 when req.member is absent', async () => {
+    const res = await request(appWithNoMember()).get('/x')
+    expect(res.status).toBe(403)
+  })
   it('403 when missing the permission', async () => {
     const res = await request(appWith({ role: 'staff', permissions: {} })).get('/x')
     expect(res.status).toBe(403)
