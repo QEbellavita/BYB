@@ -37,6 +37,9 @@ export function supabaseMembershipLookup(config: AppConfig): RequireWorkspaceDep
 
 export function requireWorkspace(deps: RequireWorkspaceDeps): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || !req.accessToken) {
+      return res.status(500).json({ error: 'requireWorkspace requires requireAuth to run first' })
+    }
     const workspaceId = req.header('x-workspace-id') ?? ''
     if (!workspaceId) return res.status(400).json({ error: 'missing x-workspace-id' })
     const member = await deps.getMembership(req.accessToken ?? '', workspaceId)
