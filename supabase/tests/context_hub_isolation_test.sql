@@ -1,6 +1,6 @@
 -- context_hub_isolation_test.sql — cross-tenant isolation across Hub tables
 begin;
-select plan(8);
+select plan(11);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f1','f1@test.dev'),
@@ -22,6 +22,13 @@ insert into risk_frameworks (workspace_id, name) values ('ffffffff-0000-0000-000
 insert into governance (workspace_id, name, kind) values ('ffffffff-0000-0000-0000-000000000002','Board','committee');
 insert into org_people (workspace_id, person_name) values ('ffffffff-0000-0000-0000-000000000002','Jane');
 
+insert into entity_versions (workspace_id, entity_type, entity_id, version, snapshot, status)
+  values ('ffffffff-0000-0000-0000-000000000002','business_rules', gen_random_uuid(), 1, '{}'::jsonb, 'active');
+insert into context_events (workspace_id, type, entity_type, entity_id)
+  values ('ffffffff-0000-0000-0000-000000000002','business_rules.insert','business_rules', gen_random_uuid());
+insert into context_links (workspace_id, from_type, from_id, to_type, to_id)
+  values ('ffffffff-0000-0000-0000-000000000002','business_rules', gen_random_uuid(),'compliance_obligations', gen_random_uuid());
+
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000f1","role":"authenticated"}';
 
@@ -33,6 +40,9 @@ select is((select count(*)::int from decision_logic         where workspace_id='
 select is((select count(*)::int from risk_frameworks        where workspace_id='ffffffff-0000-0000-0000-000000000002'),0,'iso risk_frameworks');
 select is((select count(*)::int from governance             where workspace_id='ffffffff-0000-0000-0000-000000000002'),0,'iso governance');
 select is((select count(*)::int from org_people             where workspace_id='ffffffff-0000-0000-0000-000000000002'),0,'iso org_people');
+select is((select count(*)::int from entity_versions where workspace_id='ffffffff-0000-0000-0000-000000000002'),0,'iso entity_versions');
+select is((select count(*)::int from context_events  where workspace_id='ffffffff-0000-0000-0000-000000000002'),0,'iso context_events');
+select is((select count(*)::int from context_links   where workspace_id='ffffffff-0000-0000-0000-000000000002'),0,'iso context_links');
 
 select * from finish();
 rollback;
