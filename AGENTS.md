@@ -57,7 +57,7 @@ npm run dev:web             # Vite dev server
    belcrm / Quantara / ncc / Cinder. BYB is independent of the Quantara emotion/biometric stack.
 
 ## Roadmap (each sub-project = its own spec→plan→build cycle)
-SP-0 Foundation ✅ (done) → **SP-1 Context Hub (next, the keystone)** → SP-2 Onboarding wizard
+SP-0 Foundation ✅ → SP-1 Context Hub ✅ → **SP-2 Onboarding wizard (next)**
 → SP-3 Risk Register + Complaints → SP-4 IPL + Document Library → SP-5 Trackers + Projects
 → SP-6 Onboarding & Train → (v1 ships) → SP-7 ANZSIC obligations + Monitoring agent
 → SP-8 Insights & Reporting → SP-9 Product Hub → SP-10 Finance (Xero/MYOB + Stripe AU).
