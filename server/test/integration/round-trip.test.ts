@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { loadConfig } from '../../src/config.js'
 import { anonClient, serviceClient, userScopedClient } from '../../src/supabase.js'
 import { supabaseHubStore, supabaseEventStore } from '../../src/context/supabase-store.js'
@@ -9,6 +9,7 @@ const email = `int-${Date.now()}@test.dev`
 const password = 'Test-pass-123456'
 let token: string
 let workspaceId: string
+let userId: string
 
 beforeAll(async () => {
   const admin = serviceClient(config)
@@ -17,11 +18,22 @@ beforeAll(async () => {
   const { data, error } = await anonClient(config).auth.signInWithPassword({ email, password })
   if (error || !data.session) throw new Error(`sign-in failed: ${error?.message}`)
   token = data.session.access_token
+  userId = data.session.user.id
   const db = userScopedClient(config, token)
   const { data: ws, error: wErr } = await db.rpc('create_workspace', { p_name: 'Int Co', p_slug: `int-${Date.now()}` })
   if (wErr) throw new Error(`create_workspace failed: ${wErr.message}`)
   if (!ws || typeof ws !== 'object' || !('id' in ws)) throw new Error('create_workspace returned no workspace')
   workspaceId = (ws as { id: string }).id
+})
+
+afterAll(async () => {
+  const admin = serviceClient(config)
+  if (workspaceId) {
+    await admin.from('workspaces').delete().eq('id', workspaceId)
+  }
+  if (userId) {
+    await admin.auth.admin.deleteUser(userId)
+  }
 })
 
 describe('Context Hub round-trip (live stack)', () => {

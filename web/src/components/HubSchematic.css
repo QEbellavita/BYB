@@ -1,0 +1,91 @@
+.hub {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.hub__orbit {
+  fill: none;
+  stroke: var(--line-2);
+  stroke-width: 1;
+  stroke-dasharray: 2 6;
+  opacity: 0;
+  animation: hub-orbit-in 1.2s var(--ease) 0.1s forwards;
+}
+@keyframes hub-orbit-in { to { opacity: 0.5; } }
+
+/* connection lines draw themselves out from the core */
+.hub__link {
+  stroke: var(--ink);
+  stroke-width: 1.25;
+  opacity: 0.42;
+  stroke-dasharray: 320;
+  stroke-dashoffset: 320;
+  animation: hub-draw 0.7s var(--ease) forwards;
+}
+@keyframes hub-draw { to { stroke-dashoffset: 0; } }
+
+/* nodes fade + settle in */
+.hub__node {
+  opacity: 0;
+  animation: hub-node-in 0.5s var(--ease) forwards;
+}
+@keyframes hub-node-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.hub__node { transform-box: fill-box; transform-origin: center; }
+
+.hub__node-ring {
+  fill: var(--paper-raised);
+  stroke: var(--ink);
+  stroke-width: 1.25;
+}
+.hub__node-core { fill: var(--ink); }
+.hub__node--ochre .hub__node-core { fill: var(--ochre); }
+.hub__node--ochre .hub__node-ring { stroke: var(--ochre); }
+.hub__node--danger .hub__node-core { fill: var(--danger); }
+.hub__node--danger .hub__node-ring { stroke: var(--danger); }
+
+.hub__node-code {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  fill: var(--ochre);
+}
+.hub__node-label {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+
+/* core */
+.hub__pulse {
+  fill: var(--ochre);
+  opacity: 0.18;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hub-pulse 3.4s ease-in-out infinite;
+}
+@keyframes hub-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.16; }
+  50%      { transform: scale(1.28); opacity: 0.04; }
+}
+.hub__core-outer { fill: none; stroke: var(--ochre); stroke-width: 1.5; }
+.hub__core-mid   { fill: none; stroke: var(--ochre); stroke-width: 1.5; opacity: 0.7; }
+.hub__core-dot   { fill: var(--ochre); }
+.hub__cross      { stroke: var(--ochre); stroke-width: 1.5; }
+
+.hub__core-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  fill: var(--ink);
+}
+
+/* compact variant: tighter labels for in-app use */
+.hub--compact .hub__node-label { font-size: 12.5px; }
+.hub--compact .hub__core-label { font-size: 10px; }

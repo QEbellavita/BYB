@@ -28,16 +28,29 @@ export function orderModules(manifests: ModuleManifest[]): ModuleManifest[] {
 // wired into app.ts in SP-1+ when the first real feature module exists.
 
 export interface RegisterDeps {
-  isEnabled: (workspaceId: string, moduleId: string) => Promise<boolean>
+  isEnabled: (workspaceId: string, moduleId: string, accessToken: string) => Promise<boolean>
 }
 
 export function registerModules(app: Express, manifests: ModuleManifest[], deps: RegisterDeps): void {
   for (const m of orderModules(manifests)) {
     const router = Router()
     // gate: a disabled module is invisible (404) for this workspace
+    // unless the request matches one of the module's gateExempt entries (exact method+path)
     router.use(async (req, res, next) => {
-      const wsId = req.workspaceId ?? ''
-      if (!wsId || !(await deps.isEnabled(wsId, m.id))) {
+      // Check if this request is exempt from the feature gate
+      const exempt = m.gateExempt?.some(
+        (e) =>
+          e.method.toUpperCase() === req.method.toUpperCase() &&
+          req.path === e.path
+      ) ?? false
+
+      if (exempt) return next()
+
+      const wsId = req.workspaceId ?? req.header('x-workspace-id') ?? ''
+      const authHeader = req.header('authorization') ?? ''
+      const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+
+      if (!wsId || !(await deps.isEnabled(wsId, m.id, accessToken))) {
         return res.status(404).json({ error: 'module not enabled' })
       }
       next()

@@ -15,6 +15,15 @@ major_version = 15
 enabled = true
 port = 54333
 
+# Local mail catcher disabled: BYB sends email via its own application email
+# service (tests use a fake transport), so Supabase-auth SMTP is unused. Leaving
+# it enabled makes GoTrue hang ~20s on admin user creation when the mail
+# container isn't running (it is excluded locally to avoid a port clash with a
+# separate Supabase project), which 504s the integration tests. Disabling it is
+# also harmless on CI, where no test asserts Supabase-auth mail.
+[inbucket]
+enabled = false
+
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:5173"
