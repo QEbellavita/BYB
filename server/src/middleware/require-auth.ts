@@ -9,6 +9,7 @@ declare global {
     interface Request {
       user?: AuthedUser
       accessToken?: string
+      aal?: 'aal1' | 'aal2' | null
     }
   }
 }
@@ -39,6 +40,13 @@ export function requireAuth(deps: RequireAuthDeps): RequestHandler {
     }
     req.user = user
     req.accessToken = token
+    try {
+      const seg = token.split('.')[1]
+      const payload = JSON.parse(Buffer.from(seg ?? '', 'base64url').toString('utf8'))
+      req.aal = (payload?.aal as 'aal1' | 'aal2' | undefined) ?? null
+    } catch {
+      req.aal = null
+    }
     next()
   }
 }

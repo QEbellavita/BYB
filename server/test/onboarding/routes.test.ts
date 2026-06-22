@@ -1,9 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import express, { type Router } from 'express'
 import request from 'supertest'
 import type { OnboardingService, OnboardingStore, OnboardingSession, OnboardingSnapshot, FinishResult } from '../../src/modules/onboarding/types.js'
 import type { CompletionStore } from '../../src/context/onboarding.js'
 import { StaleDraftError } from '../../src/modules/onboarding/service.js'
+
+// ---------------------------------------------------------------------------
+// Token helpers
+// ---------------------------------------------------------------------------
+
+/** A fake JWT-shaped token encoding aal2 — used for routes gated by requireAAL2 */
+const AAL2_TOKEN = `h.${Buffer.from(JSON.stringify({ sub: 'user-1', aal: 'aal2' })).toString('base64url')}.sig`
 
 // ---------------------------------------------------------------------------
 // Fake session/snapshot helpers
@@ -264,7 +271,7 @@ describe('POST /api/m/onboarding/finish', () => {
     const app = await buildApp(service, { userRole: 'owner' })
     const res = await request(app)
       .post('/api/m/onboarding/finish')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
       .send({})
     expect(res.status).toBe(200)
