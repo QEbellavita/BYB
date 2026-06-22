@@ -1,5 +1,6 @@
 import express from 'express'
 import { corsMiddleware } from './middleware/cors.js'
+import { securityHeaders } from './middleware/security-headers.js'
 import { healthRouter } from './routes/health.js'
 import { meRouter } from './routes/me.js'
 import type { AppConfig } from './config.js'
@@ -29,12 +30,22 @@ import { makePublish } from './events/publish.js'
 import { registerModules } from './modules/loader.js'
 import { consoleTransport, createEmailService } from './services/email.js'
 import type { BootstrapWorkspace } from './modules/onboarding/routes.js'
+import { apiRateLimiter } from './middleware/rate-limit.js'
 
 export function createApp(config?: AppConfig): express.Express {
   const app = express()
+  app.disable('x-powered-by')
+  app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1))
+  app.use(securityHeaders())
   app.use(corsMiddleware(process.env.CORS_ORIGIN))
-  app.use(express.json())
   app.use(healthRouter)
+  app.use(apiRateLimiter())
+  app.use(express.json({ limit: process.env.BODY_LIMIT ?? '64kb' }))
+  app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err && err.type === 'entity.too.large') { res.status(413).json({ error: 'request body too large' }); return }
+    if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) { res.status(400).json({ error: 'invalid JSON body' }); return }
+    next(err)
+  })
   if (config) {
     app.use(meRouter(config))
 
@@ -227,5 +238,9 @@ export function createApp(config?: AppConfig): express.Express {
 
     registerModules(app, [manifest, riskManifest, complaintsManifest, improvementsManifest], { isEnabled })
   }
+  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('Unhandled error:', err)
+    res.status(500).json({ error: 'internal server error' })
+  })
   return app
 }
