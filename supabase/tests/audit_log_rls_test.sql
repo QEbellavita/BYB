@@ -30,14 +30,15 @@ values (
   'workspaces'
 );
 
--- (1) WS-A admin sees its own row (positive control)
+-- (1) WS-A admin sees its own row (positive control).
+-- NOTE: Data-change triggers (0019) also write audit rows for the seed inserts above,
+-- so the exact count is > 1. We assert count >= 1 to prove admin access, not count.
 set local role authenticated;
 set local "request.jwt.claims" =
   '{"sub":"cccccccc-0000-0000-0000-000000000001","role":"authenticated"}';
-select is(
-  (select count(*)::int from public.audit_log where workspace_id = 'dddddddd-0000-0000-0000-000000000001'),
-  1,
-  'WS-A admin sees the one audit_log row in WS-A'
+select ok(
+  (select count(*)::int from public.audit_log where workspace_id = 'dddddddd-0000-0000-0000-000000000001') >= 1,
+  'WS-A admin sees at least one audit_log row in WS-A'
 );
 
 -- (2) WS-A non-admin member sees 0
