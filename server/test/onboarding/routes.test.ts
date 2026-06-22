@@ -116,7 +116,7 @@ async function buildApp(service: OnboardingService, opts: {
     makeService: () => service,
     auth: fakeAuth,
     workspace: fakeMembership,
-    onboardingStore: fakeOnboardingStore,
+    makeOnboardingStore: (_token: string) => fakeOnboardingStore,
     createWorkspace: async (_accessToken: string, _name: string) => ({ workspaceId: 'new-ws-1' }),
   })
   app.use('/api/m/onboarding', mRouter)
