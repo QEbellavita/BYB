@@ -5,12 +5,16 @@ import { requireWorkspace } from '../middleware/require-workspace.js'
 import { requireWorkspaceAdmin } from '../middleware/require-workspace-admin.js'
 import { userScopedClient } from '../supabase.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { AuditRecorder } from '../services/audit.js'
 
 // Injectable deps for unit-testing without a live DB.
 export interface AuditRouterDeps {
   auth: { getUser: (token: string) => Promise<{ id: string; email: string | null } | null> }
   workspace: { getMembership: (token: string, workspaceId: string) => Promise<{ role: string; permissions: Record<string, unknown> } | null> }
-  /** Override the Supabase client factory — used by unit tests to inject fakes. */
+  /** Audit recorder — records authz.denied events from requireWorkspaceAdmin. */
+  audit?: AuditRecorder
+  /** Override the Supabase client factory — used by unit tests to inject fakes.
+   *  MUST be a user-scoped (anon key + JWT) client in production — never service-role — so RLS applies. */
   makeClient?: (config: AppConfig, accessToken: string) => Pick<SupabaseClient, 'from'>
 }
 
@@ -22,11 +26,7 @@ export function auditRouter(config: AppConfig, deps?: AuditRouterDeps): Router {
   const workspaceMiddleware = requireWorkspace({
     getMembership: deps?.workspace.getMembership ?? defaultGetMembership(config),
   })
-  // requireWorkspaceAdmin: no audit recorder available at route-factory scope
-  // (the app-level auditService lives in app.ts, and plumbing it through deps
-  // would complicate every test; the service-role audit recorder in app.ts
-  // already covers authz.denied events from the middleware wired there).
-  const adminMiddleware = requireWorkspaceAdmin()
+  const adminMiddleware = requireWorkspaceAdmin({ audit: deps?.audit })
 
   const clientFactory = deps?.makeClient ?? ((_cfg: AppConfig, token: string) => userScopedClient(_cfg, token))
 
@@ -49,7 +49,11 @@ export function auditRouter(config: AppConfig, deps?: AuditRouterDeps): Router {
         .limit(limit)
 
       if (req.query.before !== undefined) {
-        query = (query as ReturnType<typeof query.lt>).lt('id', Number(req.query.before))
+        const before = Number(req.query.before)
+        if (!Number.isInteger(before) || before <= 0) {
+          return res.status(400).json({ error: '?before must be a positive integer' })
+        }
+        query = (query as ReturnType<typeof query.lt>).lt('id', before)
       }
 
       const { data, error } = await query

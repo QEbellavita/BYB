@@ -75,13 +75,9 @@ export function createApp(config?: AppConfig): express.Express {
     }
 
     // ---- Audit read endpoint — GET /api/audit ----
-    // requireWorkspaceAdmin is called without a recorder here: the recorder lives
-    // at this scope but threading it through AuditRouterDeps would complicate the
-    // unit-test interface for no material security gain (authz.denied events from
-    // requireWorkspaceAdmin in other routes already cover this path).
     app.use(
       '/api/audit',
-      auditRouter(config, { auth: authDeps, workspace: workspaceDeps }),
+      auditRouter(config, { auth: authDeps, workspace: workspaceDeps, audit: auditService }),
     )
 
     // ---- Email service ----
