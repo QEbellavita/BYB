@@ -6,13 +6,26 @@ import type { AppConfig } from './config.js'
 import { anonClient, userScopedClient, serviceClient } from './supabase.js'
 import { requireAuth } from './middleware/require-auth.js'
 import { supabaseMembershipLookup } from './middleware/require-workspace.js'
-import { supabaseHubStore } from './context/supabase-store.js'
+import { supabaseHubStore, supabaseEventStore, supabaseLinkStore } from './context/supabase-store.js'
 import { supabaseOnboardingCompletionStore, setOnboardingStore } from './context/index.js'
 import { ContextHub } from './context/index.js'
+import { createRegistry } from './context/events.js'
 import { createOnboardingService } from './modules/onboarding/service.js'
 import { supabaseOnboardingStore } from './modules/onboarding/supabase-store.js'
 import { createOnboardingManifest } from './modules/onboarding/manifest.js'
 import { bootstrapRouter } from './modules/onboarding/routes.js'
+import { supabaseRiskStore } from './modules/risk/supabase-store.js'
+import { createRiskService } from './modules/risk/service.js'
+import { createRiskManifest } from './modules/risk/manifest.js'
+import { supabaseComplaintsStore } from './modules/complaints/supabase-store.js'
+import { createComplaintsService } from './modules/complaints/service.js'
+import { createComplaintsManifest } from './modules/complaints/manifest.js'
+import { supabaseImprovementsStore } from './modules/improvements/supabase-store.js'
+import { createImprovementService } from './modules/improvements/service.js'
+import { createImprovementsManifest } from './modules/improvements/manifest.js'
+import { registerImprovementSubscriber } from './modules/improvements/subscriber.js'
+import { links } from './context/links.js'
+import { makePublish } from './events/publish.js'
 import { registerModules } from './modules/loader.js'
 import { consoleTransport, createEmailService } from './services/email.js'
 import type { BootstrapWorkspace } from './modules/onboarding/routes.js'
@@ -93,15 +106,16 @@ export function createApp(config?: AppConfig): express.Express {
 
     // ---- Feature registry isEnabled ----
     // Uses service client to check workspace_features (admins manage these, service bypasses RLS)
-    const isEnabled = async (workspaceId: string, moduleId: string, _accessToken: string): Promise<boolean> => {
+    const isEnabled = async (workspaceId: string, moduleId: string, _accessToken: string): Promise<boolean | null> => {
       const { data, error } = await service
         .from('workspace_features')
         .select('enabled')
         .eq('workspace_id', workspaceId)
         .eq('module_id', moduleId)
         .maybeSingle()
-      if (error || !data) return false
-      return (data as Record<string, unknown>).enabled === true
+      if (error) return false
+      // null = no row found; let the gate fall back to manifest.defaultEnabled
+      return data ? (data as Record<string, unknown>).enabled === true : null
     }
 
     // ---- Per-request onboarding service factory ----
@@ -143,6 +157,32 @@ export function createApp(config?: AppConfig): express.Express {
       return { workspaceId }
     }
 
+    // ---- Event infrastructure ----
+    const registry = createRegistry()
+    const eventStore = supabaseEventStore(service)
+    const publish = makePublish(service, eventStore, registry)
+    const linkStore = supabaseLinkStore(service)
+    // Note: registerImprovementSubscriber called after stores are built below
+
+    // ---- Risk module ----
+    const riskStore = supabaseRiskStore(service)
+    const riskService = createRiskService({ store: riskStore, publish, links, linkStore })
+
+    // ---- Complaints module ----
+    const complaintsStore = supabaseComplaintsStore(service)
+    const complaintsService = createComplaintsService({ store: complaintsStore, publish, links, linkStore })
+
+    // ---- Improvements module ----
+    const improvementsStore = supabaseImprovementsStore(service)
+    const improvementsService = createImprovementService({ store: improvementsStore })
+
+    // ---- Wire improvement subscriber (after all stores are built) ----
+    registerImprovementSubscriber(
+      registry,
+      { riskStore, complaintStore: complaintsStore, improvementStore: improvementsStore },
+      () => new Date(),
+    )
+
     // ---- Register modules ----
     const manifest = createOnboardingManifest({
       service: onboardingService,
@@ -152,7 +192,25 @@ export function createApp(config?: AppConfig): express.Express {
       createWorkspace: createWorkspaceAction,
     })
 
-    registerModules(app, [manifest], { isEnabled })
+    const riskManifest = createRiskManifest({
+      service: riskService,
+      auth: authDeps,
+      workspace: workspaceDeps,
+    })
+
+    const complaintsManifest = createComplaintsManifest({
+      service: complaintsService,
+      auth: authDeps,
+      workspace: workspaceDeps,
+    })
+
+    const improvementsManifest = createImprovementsManifest({
+      service: improvementsService,
+      auth: authDeps,
+      workspace: workspaceDeps,
+    })
+
+    registerModules(app, [manifest, riskManifest, complaintsManifest, improvementsManifest], { isEnabled })
   }
   return app
 }
