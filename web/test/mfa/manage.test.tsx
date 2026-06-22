@@ -29,10 +29,19 @@ describe('ManageMfa', () => {
     })
   })
 
-  it('shows empty state when no factors', async () => {
+  it('shows enroll CTA when no factors enrolled', async () => {
     const listFactors = vi.fn(async () => ({ data: { totp: [] }, error: null }))
     const unenroll = vi.fn(async () => ({ error: null }))
-    render(<ManageMfa listFactors={listFactors} unenroll={unenroll} />)
-    expect(await screen.findByText(/no mfa factors/i)).toBeInTheDocument()
+    const enrollTotp = vi.fn(async () => ({ data: null, error: { message: 'not called' } }))
+    const challengeAndVerify = vi.fn(async () => ({ data: null, error: null }))
+    render(
+      <ManageMfa
+        listFactors={listFactors}
+        unenroll={unenroll}
+        enrollTotp={enrollTotp}
+        challengeAndVerify={challengeAndVerify}
+      />
+    )
+    expect(await screen.findByRole('button', { name: /enable mfa/i })).toBeInTheDocument()
   })
 })

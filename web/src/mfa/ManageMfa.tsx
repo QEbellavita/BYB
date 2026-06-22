@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
+import { EnrollMfa } from './EnrollMfa'
+import { enrollTotp as defaultEnrollTotp, challengeAndVerify as defaultChallengeAndVerify } from './mfaApi'
 
-interface Factor { id: string; friendly_name: string; status: string }
+interface Factor { id: string; friendly_name?: string; status: string }
 
 interface ManageMfaProps {
   listFactors: () => Promise<{ data: { totp: Factor[] } | null; error: { message: string } | null }>
   unenroll: (factorId: string) => Promise<{ error: { message: string } | null }>
+  enrollTotp?: () => Promise<{ data: { id: string; totp: { qr_code: string; secret: string } } | null; error: { message: string } | null }>
+  challengeAndVerify?: (factorId: string, code: string) => Promise<{ data: unknown; error: { message: string } | null }>
 }
 
-export function ManageMfa({ listFactors, unenroll }: ManageMfaProps) {
+export function ManageMfa({ listFactors, unenroll, enrollTotp = defaultEnrollTotp, challengeAndVerify = defaultChallengeAndVerify }: ManageMfaProps) {
   const [factors, setFactors] = useState<Factor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,10 +34,10 @@ export function ManageMfa({ listFactors, unenroll }: ManageMfaProps) {
 
   return (
     <div>
-      {factors.length === 0 && <p>No MFA factors enrolled.</p>}
+      {factors.length === 0 && <EnrollMfa enrollTotp={enrollTotp} challengeAndVerify={challengeAndVerify} />}
       {factors.map((f) => (
         <div key={f.id}>
-          <span>{f.friendly_name}</span>
+          <span>{f.friendly_name ?? f.id}</span>
           <button onClick={() => handleDisable(f.id)}>Disable</button>
         </div>
       ))}

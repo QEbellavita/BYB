@@ -6,7 +6,7 @@ import { ComplaintsPage } from './app/ComplaintsPage'
 import { ImprovementsPage } from './app/ImprovementsPage'
 import { ModulePage } from './app/ModulePage'
 import { ManageMfa } from './mfa/ManageMfa'
-import { listFactors, unenroll } from './mfa/mfaApi'
+import { listFactors, unenroll, enrollTotp, challengeAndVerify } from './mfa/mfaApi'
 import './app/AppChrome.css'
 
 interface Me { id: string; email: string | null }
@@ -135,7 +135,7 @@ export function Shell({ fetchMe, onSignOut, token, workspaceId }: ShellProps) {
             <ImprovementsPage token={token ?? ''} workspaceId={workspaceId ?? ''} />
           )}
           {active === 'security' && (
-            <ManageMfa listFactors={listFactors} unenroll={unenroll} />
+            <ManageMfa listFactors={listFactors} unenroll={unenroll} enrollTotp={enrollTotp} challengeAndVerify={challengeAndVerify} />
           )}
           {active !== 'hub' && active !== 'risk' && active !== 'complaints' && active !== 'improvements' && active !== 'security' && (
             <ModulePage
