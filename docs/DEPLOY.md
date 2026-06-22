@@ -78,10 +78,11 @@ from local files.)
 
 - `vite preview` is a minimal static server — fine to start; for scale, serve the
   built `web/dist` from a CDN/static host and keep only the API on Railway.
-- The server uses the Supabase **service-role** client for onboarding writes;
-  tenant isolation is enforced at the app layer (auth + admin gate + per-write
-  workspace-ownership checks), not by RLS as the last line. See the SP-2 ledger
-  follow-ups before relying on multi-tenant hardening.
+- Tenant isolation: all user-scoped reads/writes (risk/complaints/improvements/Hub
+  **and onboarding** session/invite/completion) go through a per-request user-JWT
+  client, so Postgres **RLS is the last line of defense** (SH-2 + SH-2.1). The
+  service-role client is used only for the event outbox/subscriber and the
+  `workspace_features` config flag.
 - No emails are sent in production yet — invite delivery uses a console transport
   (`createEmailService`); wire a real transport (and set the from/domain) before
   inviting real users.
