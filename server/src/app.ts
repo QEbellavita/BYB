@@ -31,6 +31,7 @@ import { registerModules } from './modules/loader.js'
 import { consoleTransport, createEmailService } from './services/email.js'
 import type { BootstrapWorkspace } from './modules/onboarding/routes.js'
 import { apiRateLimiter } from './middleware/rate-limit.js'
+import { createAuditService } from './services/audit.js'
 
 export function createApp(config?: AppConfig): express.Express {
   const app = express()
@@ -53,6 +54,9 @@ export function createApp(config?: AppConfig): express.Express {
     const anon = anonClient(config)
     const service = serviceClient(config)
 
+    // ---- Audit service (uses service-role client — has INSERT on audit_log) ----
+    const auditService = createAuditService(service)
+
     // ---- Auth deps (shared) ----
     const authDeps = {
       getUser: async (token: string) => {
@@ -60,6 +64,7 @@ export function createApp(config?: AppConfig): express.Express {
         if (error || !data.user) return null
         return { id: data.user.id, email: data.user.email ?? null }
       },
+      audit: auditService,
     }
 
     // ---- Workspace membership deps ----
