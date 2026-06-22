@@ -33,9 +33,9 @@ export function Login({
     <div className="auth bp-grid">
       {/* Left: the brand panel (the drawing) */}
       <aside className="auth__brand">
-        <a className="brand auth__brand-mark" href="#/" aria-label="BYB home">
+        <a className="brand auth__brand-mark" href="#/" aria-label="BtG home">
           <span className="brand__mark" aria-hidden="true"><span className="brand__core" /></span>
-          <span className="brand__type"><strong>BYB</strong><em>Build Your Business</em></span>
+          <span className="brand__type"><strong>BtG</strong><em>Build the Guild</em></span>
         </a>
         <div className="auth__art">
           <HubSchematic variant="compact" />

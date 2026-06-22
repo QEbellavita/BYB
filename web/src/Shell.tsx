@@ -64,7 +64,7 @@ export function Shell({ fetchMe, onSignOut, token, workspaceId }: ShellProps) {
       <aside className="sidebar">
         <div className="sidebar__brand">
           <span className="brand__mark" aria-hidden="true"><span className="brand__core" /></span>
-          <strong>BYB</strong>
+          <strong>BtG</strong>
         </div>
 
         <button className="wsswitch" type="button">
