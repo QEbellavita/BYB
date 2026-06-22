@@ -1,5 +1,5 @@
 begin;
-select plan(3);
+select plan(5);
 
 insert into auth.users(id,email) values
   ('00000000-0000-0000-0000-0000000000c1','owner-c@test.dev'),
@@ -28,6 +28,25 @@ set local "request.jwt.claims" =
 select is((select count(*)::int from risk_entries
   where workspace_id='cccccccc-0000-0000-0000-000000000001'),
   0, 'other tenant cannot see C risks');
+
+-- cross-tenant write-denial: D member cannot INSERT into C's workspace
+select throws_ok(
+  $$insert into risk_entries(workspace_id,title,likelihood,impact)
+    values('cccccccc-0000-0000-0000-000000000001','evil risk',1,1)$$,
+  '42501', null, 'risk_entries: foreign member cannot insert into another workspace');
+
+-- cross-tenant write-denial: D member cannot UPDATE C's rows (USING hides them → 0 rows changed)
+do $$
+begin
+  update risk_entries set title='pwned'
+  where workspace_id='cccccccc-0000-0000-0000-000000000001';
+end $$;
+set local "request.jwt.claims" =
+  '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}';
+select is(
+  (select title from risk_entries where id='eeeeeeee-0000-0000-0000-000000000001'),
+  'C risk',
+  'risk_entries: foreign member cannot update another workspace row');
 
 select * from finish();
 rollback;
