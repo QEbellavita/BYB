@@ -8,6 +8,7 @@ function mapRow(row: Record<string, unknown>): ImprovementRow {
     version: row['version'] as number,
     title: row['title'] as string,
     suggested_change: (row['suggested_change'] ?? null) as string | null,
+    detail: (row['detail'] ?? null) as string | null,
     source: row['source'] as ImprovementRow['source'],
     status: row['status'] as ImprovementRow['status'],
     trigger_kind: (row['trigger_kind'] ?? null) as ImprovementRow['trigger_kind'],

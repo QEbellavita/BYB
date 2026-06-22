@@ -14,6 +14,7 @@ export interface ImprovementInput {
   version?: number
   title: string
   suggested_change?: string
+  detail?: string
   source?: ImprovementSource
   status?: ImprovementStatus
 }
@@ -24,6 +25,7 @@ export interface ImprovementRow {
   version: number
   title: string
   suggested_change: string | null
+  detail: string | null
   source: ImprovementSource
   status: ImprovementStatus
   trigger_kind: ImprovementTriggerKind | null
@@ -40,6 +42,7 @@ export interface AutoSuggestionRow {
   dedup_key: string
   title: string
   suggested_change?: string
+  detail?: string
   source_ref?: Record<string, unknown>
 }
 

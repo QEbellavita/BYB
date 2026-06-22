@@ -6,7 +6,7 @@ export interface Improvement {
   title: string
   detail: string | null
   trigger_kind: string | null
-  source_ref: string | null
+  source_ref: Record<string, unknown> | null
   suggested_change: string | null
   status: 'open' | 'actioned' | 'dismissed' | 'done'
   assignee_person_id: string | null
@@ -28,7 +28,7 @@ export interface ImprovementsApi {
 export function improvementsApi(token: string, workspaceId: string): ImprovementsApi {
   return {
     list: () =>
-      apiFetch<Improvement[]>('/api/m/improvements/improvements', token, { workspaceId }),
+      apiFetch<{ improvements: Improvement[] }>('/api/m/improvements/improvements', token, { workspaceId }).then((r) => r.improvements),
 
     create: (input: CreateImprovementInput) =>
       apiFetch<Improvement>('/api/m/improvements/improvements', token, {

@@ -21,10 +21,10 @@ export interface CreateRiskInput {
   impact: number
   description?: string
   category?: string
-  owner_person_id?: string
+  ownerPersonId?: string
   treatment?: string
-  review_date?: string
-  framework_id?: string
+  reviewDate?: string
+  frameworkId?: string
 }
 
 export interface UpdateRiskInput extends CreateRiskInput {
@@ -41,7 +41,7 @@ export interface RiskApi {
 export function riskApi(token: string, workspaceId: string): RiskApi {
   return {
     list: () =>
-      apiFetch<Risk[]>('/api/m/risk/risks', token, { workspaceId }),
+      apiFetch<{ risks: Risk[] }>('/api/m/risk/risks', token, { workspaceId }).then((r) => r.risks),
 
     create: (input: CreateRiskInput) =>
       apiFetch<Risk>('/api/m/risk/risks', token, {

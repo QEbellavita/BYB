@@ -1,6 +1,7 @@
 import type { ValidationResult, ComplaintInput, ComplaintStatus, ComplaintChannel, ComplaintSeverity } from './types.js'
 
 const VALID_CHANNELS: ComplaintChannel[] = ['phone', 'email', 'in_person', 'web', 'other']
+const VALID_SEVERITIES: ComplaintSeverity[] = ['low', 'medium', 'high']
 
 export function validateComplaint(input: unknown): ValidationResult<ComplaintInput> {
   const raw = input as Record<string, unknown>
@@ -19,6 +20,10 @@ export function validateComplaint(input: unknown): ValidationResult<ComplaintInp
     }
   }
 
+  const severityRaw = raw['severity']
+  if (severityRaw !== undefined && severityRaw !== null && !VALID_SEVERITIES.includes(severityRaw as ComplaintSeverity)) {
+    errors['severity'] = 'Invalid severity'
+  }
   if (Object.keys(errors).length > 0) return { ok: false, errors }
 
   const severity: ComplaintSeverity = (raw['severity'] as ComplaintSeverity | undefined) ?? 'low'

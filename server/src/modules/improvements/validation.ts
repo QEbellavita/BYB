@@ -18,6 +18,7 @@ export function validateImprovement(input: unknown): ValidationResult<Improvemen
       version: raw['version'] as number | undefined,
       title,
       suggested_change: raw['suggested_change'] as string | undefined,
+      detail: typeof raw['detail'] === 'string' && (raw['detail'] as string).trim() ? (raw['detail'] as string).trim() : undefined,
       // source is always forced to 'manual' for the manual create path
       source: 'manual',
       status: (raw['status'] as ImprovementInput['status'] | undefined) ?? 'open',

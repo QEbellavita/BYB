@@ -40,7 +40,7 @@ export interface ComplaintsApi {
 export function complaintsApi(token: string, workspaceId: string): ComplaintsApi {
   return {
     list: () =>
-      apiFetch<Complaint[]>('/api/m/complaints/complaints', token, { workspaceId }),
+      apiFetch<{ complaints: Complaint[] }>('/api/m/complaints/complaints', token, { workspaceId }).then((r) => r.complaints),
 
     create: (input: CreateComplaintInput) =>
       apiFetch<Complaint>('/api/m/complaints/complaints', token, {

@@ -23,12 +23,13 @@ export function createImprovementService(deps: ServiceDeps): ImprovementService 
     if (!validation.ok) {
       throw Object.assign(new Error('Validation failed'), { errors: validation.errors })
     }
-    const { title, suggested_change } = validation.value
+    const { title, suggested_change, detail } = validation.value
 
     return store.create({
       workspace_id: ctx.workspaceId,
       title,
       suggested_change: suggested_change ?? null,
+      detail: detail ?? null,
       source: 'manual',
       status: 'open',
       trigger_kind: null,
@@ -56,11 +57,12 @@ export function createImprovementService(deps: ServiceDeps): ImprovementService 
     if (!validation.ok) {
       throw Object.assign(new Error('Validation failed'), { errors: validation.errors })
     }
-    const { title, suggested_change } = validation.value
+    const { title, suggested_change, detail } = validation.value
 
     return store.update(id, {
       title,
       suggested_change: suggested_change ?? null,
+      detail: detail ?? null,
       // status is managed by setStatus only
       status: current.status,
       version: current.version + 1,
