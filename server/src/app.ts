@@ -3,6 +3,7 @@ import { corsMiddleware } from './middleware/cors.js'
 import { securityHeaders } from './middleware/security-headers.js'
 import { healthRouter } from './routes/health.js'
 import { meRouter } from './routes/me.js'
+import { auditRouter } from './routes/audit.js'
 import type { AppConfig } from './config.js'
 import { anonClient, userScopedClient, serviceClient } from './supabase.js'
 import { requireAuth } from './middleware/require-auth.js'
@@ -31,6 +32,7 @@ import { registerModules } from './modules/loader.js'
 import { consoleTransport, createEmailService } from './services/email.js'
 import type { BootstrapWorkspace } from './modules/onboarding/routes.js'
 import { apiRateLimiter } from './middleware/rate-limit.js'
+import { createAuditService } from './services/audit.js'
 
 export function createApp(config?: AppConfig): express.Express {
   const app = express()
@@ -50,8 +52,12 @@ export function createApp(config?: AppConfig): express.Express {
     app.use(meRouter(config))
 
     // ---- Supabase clients ----
+
     const anon = anonClient(config)
     const service = serviceClient(config)
+
+    // ---- Audit service (uses service-role client — has INSERT on audit_log) ----
+    const auditService = createAuditService(service)
 
     // ---- Auth deps (shared) ----
     const authDeps = {
@@ -60,12 +66,19 @@ export function createApp(config?: AppConfig): express.Express {
         if (error || !data.user) return null
         return { id: data.user.id, email: data.user.email ?? null }
       },
+      audit: auditService,
     }
 
     // ---- Workspace membership deps ----
     const workspaceDeps = {
       getMembership: supabaseMembershipLookup(config),
     }
+
+    // ---- Audit read endpoint — GET /api/audit ----
+    app.use(
+      '/api/audit',
+      auditRouter(config, { auth: authDeps, workspace: workspaceDeps, audit: auditService }),
+    )
 
     // ---- Email service ----
     const emailService = createEmailService(consoleTransport)
@@ -216,6 +229,7 @@ export function createApp(config?: AppConfig): express.Express {
       workspace: workspaceDeps,
       makeOnboardingStore,
       createWorkspace: createWorkspaceAction,
+      audit: auditService,
     })
 
     const riskManifest = createRiskManifest({
