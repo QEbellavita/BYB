@@ -13,6 +13,8 @@ jobs:
       - run: npm ci
       - name: Unit tests (server + web)
         run: npm test
+      - name: Build (server + web)
+        run: npm run build --workspace server && npm run build --workspace web
       - uses: supabase/setup-cli@v1
         with: { version: latest }
       - name: Start Supabase + apply migrations
