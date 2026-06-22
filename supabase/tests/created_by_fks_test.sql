@@ -416,12 +416,14 @@ select ok(
 -- delete the user, assert created_by became NULL (not blocked).
 -- Wrapped in BEGIN/ROLLBACK so it leaves no state.
 -- ────────────────────────────────────────────────────────────────────────────
+-- Create temp table to pass row id out of anonymous block
+create temp table _t3_check (row_id uuid) on commit delete rows;
+
 do $$
 declare
   v_user_id  uuid := gen_random_uuid();
   v_ws_id    uuid;
   v_row_id   uuid;
-  v_created  uuid;
 begin
   -- need a workspace for FK on business_profile
   insert into workspaces(id, name, slug)
@@ -437,18 +439,18 @@ begin
     values (v_ws_id, 'fk-test-profile', v_user_id)
     returning id into v_row_id;
 
-  -- delete the user
+  -- store the row id for the outer assertion
+  insert into _t3_check values (v_row_id);
+
+  -- delete the user — ON DELETE SET NULL should fire
   delete from auth.users where id = v_user_id;
-
-  -- check created_by is now null
-  select created_by into v_created from business_profile where id = v_row_id;
-
-  if v_created is not null then
-    raise exception 'ON DELETE SET NULL did not fire: created_by = %', v_created;
-  end if;
 end $$;
 
-select ok(true, 'ON DELETE SET NULL: deleting auth.users row sets business_profile.created_by to NULL');
+select is(
+  (select created_by from business_profile where id = (select row_id from _t3_check)),
+  null,
+  'ON DELETE SET NULL: deleting auth.users row sets business_profile.created_by to NULL'
+);
 
 select * from finish();
 rollback;
