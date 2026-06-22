@@ -1,5 +1,6 @@
 import express from 'express'
 import { corsMiddleware } from './middleware/cors.js'
+import { securityHeaders } from './middleware/security-headers.js'
 import { healthRouter } from './routes/health.js'
 import { meRouter } from './routes/me.js'
 import type { AppConfig } from './config.js'
@@ -32,6 +33,8 @@ import type { BootstrapWorkspace } from './modules/onboarding/routes.js'
 
 export function createApp(config?: AppConfig): express.Express {
   const app = express()
+  app.disable('x-powered-by')
+  app.use(securityHeaders())
   app.use(corsMiddleware(process.env.CORS_ORIGIN))
   app.use(express.json())
   app.use(healthRouter)
