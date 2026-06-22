@@ -3,6 +3,7 @@ import type { AppConfig } from '../config.js'
 import { requireAuth } from '../middleware/require-auth.js'
 import { requireWorkspace } from '../middleware/require-workspace.js'
 import { requireWorkspaceAdmin } from '../middleware/require-workspace-admin.js'
+import { requireAAL2 } from '../middleware/require-aal2.js'
 import { userScopedClient } from '../supabase.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AuditRecorder } from '../services/audit.js'
@@ -27,6 +28,7 @@ export function auditRouter(config: AppConfig, deps?: AuditRouterDeps): Router {
     getMembership: deps?.workspace.getMembership ?? defaultGetMembership(config),
   })
   const adminMiddleware = requireWorkspaceAdmin({ audit: deps?.audit })
+  const aal2Middleware = requireAAL2({ audit: deps?.audit })
 
   const clientFactory = deps?.makeClient ?? ((_cfg: AppConfig, token: string) => userScopedClient(_cfg, token))
 
@@ -35,6 +37,7 @@ export function auditRouter(config: AppConfig, deps?: AuditRouterDeps): Router {
     authMiddleware,
     workspaceMiddleware,
     adminMiddleware,
+    aal2Middleware,
     async (req, res) => {
       let limit = 50
       if (req.query.limit !== undefined) {
