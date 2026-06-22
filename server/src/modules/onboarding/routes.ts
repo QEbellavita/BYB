@@ -69,19 +69,23 @@ export interface OnboardingRouterDeps {
   makeService: (token: string) => OnboardingService
   auth: RequireAuthDeps
   workspace: RequireWorkspaceDeps
-  onboardingStore: OnboardingStore
+  makeOnboardingStore: (token: string) => OnboardingStore
   createWorkspace: (accessToken: string, name: string) => Promise<{ workspaceId: string }>
 }
 
 export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   const router = Router()
-  const { makeService, auth, workspace, onboardingStore, createWorkspace } = deps
+  const { makeService, auth, workspace, makeOnboardingStore, createWorkspace } = deps
 
   const authWs = () => authedWorkspaceRoute({ auth, workspace })
 
   function resolveService(req: import('express').Request): OnboardingService {
     const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
     return makeService(token)
+  }
+
+  function resolveStore(req: import('express').Request): OnboardingStore {
+    return makeOnboardingStore((req.headers.authorization ?? '').replace(/^Bearer /, ''))
   }
 
   // ----- POST /workspace — requireAuth only, gate-exempt -----
@@ -94,7 +98,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
     try {
       const result = await createWorkspace(req.accessToken ?? '', name.trim())
       // Create an onboarding session for the new workspace
-      await onboardingStore.createSession(result.workspaceId, req.user!.id)
+      await resolveStore(req).createSession(result.workspaceId, req.user!.id)
       res.status(201).json({ workspaceId: result.workspaceId })
     } catch (err) {
       handleError(err, res)
@@ -110,7 +114,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
         sessionId: '', // will be resolved via load
       }
       // We need session id from the store
-      const session = await onboardingStore.getSession(ctx.workspaceId)
+      const session = await resolveStore(req).getSession(ctx.workspaceId)
       if (!session) {
         res.status(404).json({ error: 'no onboarding session found' })
         return
@@ -125,7 +129,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   // ----- PUT /profile -----
   router.put('/profile', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
     try {
-      const session = await onboardingStore.getSession(req.workspaceId!)
+      const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
       const snapshot = await resolveService(req).saveProfile(
         { workspaceId: req.workspaceId!, userId: req.user!.id, sessionId: session.id },
@@ -140,7 +144,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   // ----- PUT /rules -----
   router.put('/rules', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
     try {
-      const session = await onboardingStore.getSession(req.workspaceId!)
+      const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
       const snapshot = await resolveService(req).saveRules(
         { workspaceId: req.workspaceId!, userId: req.user!.id, sessionId: session.id },
@@ -155,7 +159,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   // ----- PUT /industry -----
   router.put('/industry', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
     try {
-      const session = await onboardingStore.getSession(req.workspaceId!)
+      const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
       const snapshot = await resolveService(req).saveIndustry(
         { workspaceId: req.workspaceId!, userId: req.user!.id, sessionId: session.id },
@@ -170,7 +174,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   // ----- PUT /people -----
   router.put('/people', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
     try {
-      const session = await onboardingStore.getSession(req.workspaceId!)
+      const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
       const snapshot = await resolveService(req).savePeople(
         { workspaceId: req.workspaceId!, userId: req.user!.id, sessionId: session.id },
@@ -185,7 +189,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   // ----- POST /finish -----
   router.post('/finish', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
     try {
-      const session = await onboardingStore.getSession(req.workspaceId!)
+      const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
       const result = await resolveService(req).finish(
         { workspaceId: req.workspaceId!, userId: req.user!.id, sessionId: session.id }
@@ -199,7 +203,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   // ----- POST /retry/:id -----
   router.post('/retry/:id', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
     try {
-      const session = await onboardingStore.getSession(req.workspaceId!)
+      const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
       await resolveService(req).retryInvitation(
         { workspaceId: req.workspaceId!, userId: req.user!.id, sessionId: session.id },

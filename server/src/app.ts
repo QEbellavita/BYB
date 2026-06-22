@@ -7,7 +7,7 @@ import { anonClient, userScopedClient, serviceClient } from './supabase.js'
 import { requireAuth } from './middleware/require-auth.js'
 import { supabaseMembershipLookup } from './middleware/require-workspace.js'
 import { supabaseHubStore, supabaseEventStore, supabaseLinkStore } from './context/supabase-store.js'
-import { supabaseOnboardingCompletionStore, setOnboardingStore } from './context/index.js'
+import { supabaseOnboardingCompletionStore } from './context/index.js'
 import { ContextHub } from './context/index.js'
 import { createRegistry } from './context/events.js'
 import { createOnboardingService } from './modules/onboarding/service.js'
@@ -55,10 +55,6 @@ export function createApp(config?: AppConfig): express.Express {
     const workspaceDeps = {
       getMembership: supabaseMembershipLookup(config),
     }
-
-    // ---- Completion store (service-role — calls the secure RPC) ----
-    const completionStore = supabaseOnboardingCompletionStore(service)
-    setOnboardingStore(completionStore)
 
     // ---- Email service ----
     const emailService = createEmailService(consoleTransport)
@@ -118,20 +114,18 @@ export function createApp(config?: AppConfig): express.Express {
       return data ? (data as Record<string, unknown>).enabled === true : null
     }
 
-    // ---- Onboarding: shared stores ----
-    // onboardingStore uses service-role: session reads/writes are not tenant-data rows but
-    // orchestration state; RLS on hub rows is enforced via the per-request hubStore below.
-    const onboardingStore = supabaseOnboardingStore(service)
+    // ---- Onboarding: per-request user-scoped stores (RLS is the backstop) ----
+    // completionStore calls the SECURITY DEFINER complete_onboarding RPC, which requires
+    // auth.uid() — so it MUST run on the user's JWT, not service-role. onboarding_sessions /
+    // onboarding_invite_drafts are tenant rows with admin RLS (0011); user-scope them too.
+    const makeOnboardingStore = (token: string) => supabaseOnboardingStore(userScopedClient(config, token))
 
-    // ---- Per-request onboarding service factory ----
-    // hubStore is user-scoped per request so Postgres RLS enforces tenant isolation on Hub writes
-    // (saveProfile/saveRules/saveIndustry/savePeople). onboardingStore stays service-role (see above).
     const makeOnboardingService = (token: string) =>
       createOnboardingService({
         hub: ContextHub,
         hubStore: supabaseHubStore(userScopedClient(config, token)),
-        onboardingStore,
-        completionStore, // service-role: calls the SECURITY DEFINER complete_onboarding RPC
+        onboardingStore: makeOnboardingStore(token),
+        completionStore: supabaseOnboardingCompletionStore(userScopedClient(config, token)),
         sendInvite: async (invite) => {
           await emailService.send(
             invite.email,
@@ -209,7 +203,7 @@ export function createApp(config?: AppConfig): express.Express {
       makeService: makeOnboardingService,
       auth: authDeps,
       workspace: workspaceDeps,
-      onboardingStore,
+      makeOnboardingStore,
       createWorkspace: createWorkspaceAction,
     })
 

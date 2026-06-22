@@ -284,19 +284,15 @@ describe('SP-3 modules: live integration (real Supabase)', () => {
     it('tenant 2 CANNOT INSERT a risk_entries row into tenant 1 workspace', async () => {
       const db2 = userScopedClient(config, token2)
 
-      const { error, data } = await db2.from('risk_entries').insert({
+      const { error: insErr } = await db2.from('risk_entries').insert({
         workspace_id: workspaceId1,
         title: 'Tenant 2 cross-tenant attack',
         likelihood: 1,
         impact: 1,
       })
 
-      // RLS with-check should block the insert — error returned or no rows inserted
-      const rowsInserted = Array.isArray(data) ? data.length : data ? 1 : 0
-      expect(
-        error !== null || rowsInserted === 0,
-        `Expected cross-tenant risk insert to be denied but got data: ${JSON.stringify(data)}, error: ${JSON.stringify(error)}`,
-      ).toBe(true)
+      // RLS with-check denies the insert → Postgres returns a 42501 error
+      expect(insErr, 'Expected RLS to deny foreign-tenant risk insert with an error').not.toBeNull()
 
       // Confirm tenant 1 data is unaffected: only the rows created by the test suite exist
       const db1 = userScopedClient(config, token1)
@@ -317,18 +313,15 @@ describe('SP-3 modules: live integration (real Supabase)', () => {
       if (!inserted) throw new Error('Could not seed T1 risk for update-denial test')
 
       const db2 = userScopedClient(config, token2)
-      const { error, count } = await db2
+      const { error: updErr, count } = await db2
         .from('risk_entries')
-        .update({ title: 'HACKED by tenant 2' })
+        .update({ title: 'HACKED by tenant 2' }, { count: 'exact' })
         .eq('id', inserted.id)
         .eq('workspace_id', workspaceId1)
 
-      // RLS USING clause means tenant 2 sees zero matching rows → count = 0 (no error, just silently skipped)
-      // Either an error or zero rows affected is acceptable proof of denial
-      expect(
-        error !== null || (count ?? 0) === 0,
-        `Expected cross-tenant risk update to be denied but count=${count}, error: ${JSON.stringify(error)}`,
-      ).toBe(true)
+      // RLS USING clause means tenant 2 sees zero matching rows → 0 rows affected (no error, silently skipped)
+      expect(updErr ?? null, `Expected no DB error on update-denial but got: ${JSON.stringify(updErr)}`).toBeNull()
+      expect(count ?? 0, `Expected 0 rows updated by cross-tenant risk update but got count=${count}`).toBe(0)
 
       // Verify tenant 1's row is unchanged
       const db1 = userScopedClient(config, token1)
@@ -339,18 +332,15 @@ describe('SP-3 modules: live integration (real Supabase)', () => {
     it('tenant 2 CANNOT INSERT a complaints row into tenant 1 workspace', async () => {
       const db2 = userScopedClient(config, token2)
 
-      const { error, data } = await db2.from('complaints').insert({
+      const { error: insErr } = await db2.from('complaints').insert({
         workspace_id: workspaceId1,
         reference: `CROSS-TENANT-${ts}`,
         description: 'Cross-tenant complaint attack',
         severity: 'high',
       })
 
-      const rowsInserted = Array.isArray(data) ? data.length : data ? 1 : 0
-      expect(
-        error !== null || rowsInserted === 0,
-        `Expected cross-tenant complaint insert to be denied but got data: ${JSON.stringify(data)}, error: ${JSON.stringify(error)}`,
-      ).toBe(true)
+      // RLS with-check denies the insert → Postgres returns a 42501 error
+      expect(insErr, 'Expected RLS to deny foreign-tenant complaint insert with an error').not.toBeNull()
 
       // Confirm tenant 1 data is unaffected
       const db1 = userScopedClient(config, token1)
@@ -371,16 +361,15 @@ describe('SP-3 modules: live integration (real Supabase)', () => {
       if (!inserted) throw new Error('Could not seed T1 complaint for update-denial test')
 
       const db2 = userScopedClient(config, token2)
-      const { error, count } = await db2
+      const { error: updErr, count } = await db2
         .from('complaints')
-        .update({ description: 'HACKED by tenant 2' })
+        .update({ description: 'HACKED by tenant 2' }, { count: 'exact' })
         .eq('id', inserted.id)
         .eq('workspace_id', workspaceId1)
 
-      expect(
-        error !== null || (count ?? 0) === 0,
-        `Expected cross-tenant complaint update to be denied but count=${count}, error: ${JSON.stringify(error)}`,
-      ).toBe(true)
+      // RLS USING clause means tenant 2 sees zero matching rows → 0 rows affected (no error, silently skipped)
+      expect(updErr ?? null, `Expected no DB error on update-denial but got: ${JSON.stringify(updErr)}`).toBeNull()
+      expect(count ?? 0, `Expected 0 rows updated by cross-tenant complaint update but got count=${count}`).toBe(0)
 
       // Verify tenant 1's row is unchanged
       const db1 = userScopedClient(config, token1)
