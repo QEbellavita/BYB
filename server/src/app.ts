@@ -3,6 +3,7 @@ import { corsMiddleware } from './middleware/cors.js'
 import { securityHeaders } from './middleware/security-headers.js'
 import { healthRouter } from './routes/health.js'
 import { meRouter } from './routes/me.js'
+import { auditRouter } from './routes/audit.js'
 import type { AppConfig } from './config.js'
 import { anonClient, userScopedClient, serviceClient } from './supabase.js'
 import { requireAuth } from './middleware/require-auth.js'
@@ -51,6 +52,7 @@ export function createApp(config?: AppConfig): express.Express {
     app.use(meRouter(config))
 
     // ---- Supabase clients ----
+
     const anon = anonClient(config)
     const service = serviceClient(config)
 
@@ -71,6 +73,16 @@ export function createApp(config?: AppConfig): express.Express {
     const workspaceDeps = {
       getMembership: supabaseMembershipLookup(config),
     }
+
+    // ---- Audit read endpoint — GET /api/audit ----
+    // requireWorkspaceAdmin is called without a recorder here: the recorder lives
+    // at this scope but threading it through AuditRouterDeps would complicate the
+    // unit-test interface for no material security gain (authz.denied events from
+    // requireWorkspaceAdmin in other routes already cover this path).
+    app.use(
+      '/api/audit',
+      auditRouter(config, { auth: authDeps, workspace: workspaceDeps }),
+    )
 
     // ---- Email service ----
     const emailService = createEmailService(consoleTransport)
