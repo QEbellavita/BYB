@@ -1,6 +1,6 @@
 -- context_hub_isolation_test.sql — cross-tenant isolation across Hub tables
 begin;
-select plan(11);
+select plan(12);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f1','f1@test.dev'),
@@ -11,6 +11,9 @@ insert into workspaces (id, name, slug) values
 insert into workspace_members (workspace_id, user_id, role) values
   ('ffffffff-0000-0000-0000-000000000001','00000000-0000-0000-0000-0000000000f1','owner'),
   ('ffffffff-0000-0000-0000-000000000002','00000000-0000-0000-0000-0000000000f2','owner');
+
+-- seed one row in F1's OWN workspace for positive control (proves uid→NULL regression would be caught)
+insert into business_profile (workspace_id, name) values ('ffffffff-0000-0000-0000-000000000001','F1 profile');
 
 -- seed one row per entity in F2 (insert as superuser; triggers from Task 3 not yet present)
 insert into business_profile (workspace_id, name) values ('ffffffff-0000-0000-0000-000000000002','F2 profile');
@@ -31,6 +34,9 @@ insert into context_links (workspace_id, from_type, from_id, to_type, to_id)
 
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000f1","role":"authenticated"}';
+
+-- positive control: F1 sees its own row (proves uid→NULL regression would cause failure)
+select is((select count(*)::int from business_profile where workspace_id='ffffffff-0000-0000-0000-000000000001'),1,'positive control: F1 sees its own business_profile');
 
 select is((select count(*)::int from business_profile       where workspace_id='ffffffff-0000-0000-0000-000000000002'),0,'iso business_profile');
 select is((select count(*)::int from business_rules         where workspace_id='ffffffff-0000-0000-0000-000000000002'),0,'iso business_rules');

@@ -1,6 +1,6 @@
 -- tenant_isolation_test.sql — cross-tenant isolation for members/invites/features
 begin;
-select plan(3);
+select plan(4);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000e1','e1@test.dev'),
@@ -20,6 +20,12 @@ insert into workspace_features (workspace_id, module_id, enabled) values
 -- act as user E1 (only a member of workspace E1)
 set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"00000000-0000-0000-0000-0000000000e1","role":"authenticated"}';
+
+-- positive control: E1 sees its own membership (proves uid→NULL regression would cause failure)
+select ok(
+  (select count(*)::int from workspace_members
+   where workspace_id = 'eeeeeeee-0000-0000-0000-000000000001') >= 1,
+  'positive control: E1 sees its own workspace_members row');
 
 select is(
   (select count(*)::int from workspace_members
