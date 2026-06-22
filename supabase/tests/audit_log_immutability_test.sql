@@ -1,8 +1,9 @@
 -- audit_log_immutability_test.sql
 -- Verifies audit_log is append-only: service_role can INSERT but cannot UPDATE or DELETE.
 -- Also verifies authenticated role cannot INSERT, UPDATE, or DELETE.
+-- Also verifies anon role cannot INSERT, UPDATE, DELETE, or TRUNCATE (critical: wipe prevention).
 begin;
-select plan(6);
+select plan(10);
 
 -- Seed as superuser (default role before set local)
 insert into auth.users(id,email) values
@@ -69,6 +70,42 @@ select throws_ok(
   '42501',
   null,
   'authenticated cannot DELETE from audit_log (42501)'
+);
+
+-- Switch to anon role to verify INSERT/UPDATE/DELETE/TRUNCATE are all denied (42501)
+-- anon has no legitimate access to audit_log — not read, not write.
+set local role anon;
+
+-- (7) anon cannot INSERT
+select throws_ok(
+  $$insert into public.audit_log(action) values('x')$$,
+  '42501',
+  null,
+  'anon cannot INSERT into audit_log (42501)'
+);
+
+-- (8) anon cannot UPDATE
+select throws_ok(
+  $$update public.audit_log set action = 'tampered'$$,
+  '42501',
+  null,
+  'anon cannot UPDATE audit_log (42501)'
+);
+
+-- (9) anon cannot DELETE
+select throws_ok(
+  $$delete from public.audit_log$$,
+  '42501',
+  null,
+  'anon cannot DELETE from audit_log (42501)'
+);
+
+-- (10) CRITICAL: anon cannot TRUNCATE — this was the live-proven wipe vector
+select throws_ok(
+  $$truncate public.audit_log$$,
+  '42501',
+  null,
+  'anon cannot TRUNCATE audit_log (42501) — wipe vector denied'
 );
 
 select * from finish();

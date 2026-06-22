@@ -45,3 +45,4 @@ grant usage, select on sequence public.audit_log_id_seq to service_role;
 --  so we must explicitly revoke insert/update/delete/truncate.)
 revoke insert, update, delete, truncate on public.audit_log from authenticated;
 revoke update, delete, truncate on public.audit_log from service_role;
+revoke insert, update, delete, truncate on public.audit_log from anon;

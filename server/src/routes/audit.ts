@@ -36,8 +36,12 @@ export function auditRouter(config: AppConfig, deps?: AuditRouterDeps): Router {
     workspaceMiddleware,
     adminMiddleware,
     async (req, res) => {
-      const rawLimit = Number(req.query.limit ?? 50) || 50
-      const limit = Math.min(rawLimit, 200)
+      let limit = 50
+      if (req.query.limit !== undefined) {
+        const n = Number(req.query.limit)
+        if (!Number.isInteger(n) || n <= 0) return res.status(400).json({ error: '?limit must be a positive integer' })
+        limit = Math.min(n, 200)
+      }
 
       const db = clientFactory(config, req.accessToken!)
 

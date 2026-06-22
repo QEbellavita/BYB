@@ -184,6 +184,34 @@ describe('GET /api/audit — ?limit clamped to 200', () => {
   })
 })
 
+describe('GET /api/audit — ?limit validation (400 for invalid values)', () => {
+  it('returns 400 for ?limit=-1 (negative integer)', async () => {
+    const calls: FakeStoreCall[] = []
+    const app = buildApp([], calls)
+
+    const res = await request(app)
+      .get('/api/audit?limit=-1')
+      .set('authorization', 'Bearer tok')
+      .set('x-workspace-id', 'ws-1')
+
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ error: '?limit must be a positive integer' })
+  })
+
+  it('returns 400 for ?limit=foo (non-numeric)', async () => {
+    const calls: FakeStoreCall[] = []
+    const app = buildApp([], calls)
+
+    const res = await request(app)
+      .get('/api/audit?limit=foo')
+      .set('authorization', 'Bearer tok')
+      .set('x-workspace-id', 'ws-1')
+
+    expect(res.status).toBe(400)
+    expect(res.body).toMatchObject({ error: '?limit must be a positive integer' })
+  })
+})
+
 describe('GET /api/audit — ?before cursor', () => {
   it('passes ?before=123 as a lt filter on id', async () => {
     const calls: FakeStoreCall[] = []
