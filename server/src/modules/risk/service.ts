@@ -1,5 +1,4 @@
 import { StaleDraftError } from '../../errors.js'
-import { severityBucket } from './severity.js'
 import { validateRisk } from './validation.js'
 import type { RiskRow, RiskStore, RiskService, RiskServiceContext } from './types.js'
 import type { Publish } from '../../events/publish.js'
@@ -26,7 +25,6 @@ export function createRiskService(deps: ServiceDeps): RiskService {
       throw Object.assign(new Error('Validation failed'), { errors: validation.errors })
     }
     const { title, description, category, likelihood, impact, ownerPersonId, treatment, reviewDate, frameworkId } = validation.value
-    const severity = severityBucket(likelihood, impact)
 
     const row = await store.create({
       workspace_id: ctx.workspaceId,
@@ -35,7 +33,6 @@ export function createRiskService(deps: ServiceDeps): RiskService {
       category: category ?? null,
       likelihood,
       impact,
-      severity,
       owner_person_id: ownerPersonId ?? null,
       treatment: treatment ?? null,
       status: 'open',
@@ -75,7 +72,6 @@ export function createRiskService(deps: ServiceDeps): RiskService {
       throw Object.assign(new Error('Validation failed'), { errors: validation.errors })
     }
     const { title, description, category, likelihood, impact, ownerPersonId, treatment, status, reviewDate, frameworkId } = validation.value
-    const severity = severityBucket(likelihood, impact)
 
     const updated = await store.update(id, {
       title,
@@ -83,7 +79,6 @@ export function createRiskService(deps: ServiceDeps): RiskService {
       category: category ?? null,
       likelihood,
       impact,
-      severity,
       owner_person_id: ownerPersonId ?? null,
       treatment: treatment ?? null,
       status: status ?? current.status,

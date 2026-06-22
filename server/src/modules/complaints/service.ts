@@ -24,7 +24,7 @@ export function createComplaintsService(deps: ServiceDeps): ComplaintService {
     if (!validation.ok) {
       throw Object.assign(new Error('Validation failed'), { errors: validation.errors })
     }
-    const { description, channel, severity, category, customerId, notes } = validation.value
+    const { description, channel, severity, category, complainant_name, complainant_contact, assignee_person_id } = validation.value
 
     const n = (await store.countForWorkspace(ctx.workspaceId)) + 1
     const reference = 'C-' + String(n).padStart(3, '0')
@@ -32,15 +32,17 @@ export function createComplaintsService(deps: ServiceDeps): ComplaintService {
     const row = await store.create({
       workspace_id: ctx.workspaceId,
       reference,
-      description,
+      complainant_name: complainant_name ?? null,
+      complainant_contact: complainant_contact ?? null,
       channel: channel ?? null,
-      severity: severity ?? 'low',
-      status: 'new',
-      category: category ?? null,
-      customer_id: customerId ?? null,
-      notes: notes ?? null,
-      resolved_at: null,
       received_at: new Date().toISOString(),
+      description,
+      category: category ?? null,
+      severity: severity ?? 'low',
+      assignee_person_id: assignee_person_id ?? null,
+      status: 'new',
+      resolution_notes: null,
+      resolved_at: null,
     })
 
     await publish({
@@ -74,16 +76,18 @@ export function createComplaintsService(deps: ServiceDeps): ComplaintService {
     if (!validation.ok) {
       throw Object.assign(new Error('Validation failed'), { errors: validation.errors })
     }
-    const { description, channel, severity, customerId, notes } = validation.value
+    const { description, channel, severity, category, complainant_name, complainant_contact, assignee_person_id } = validation.value
 
     const updated = await store.update(id, {
-      description,
+      complainant_name: complainant_name ?? null,
+      complainant_contact: complainant_contact ?? null,
       channel: channel ?? null,
+      description,
+      category: category ?? null,
       severity: severity ?? current.severity,
+      assignee_person_id: assignee_person_id ?? null,
       // status is NOT a field editable via update(); it is managed by dedicated transitions
       status: current.status,
-      customer_id: customerId ?? null,
-      notes: notes ?? null,
       version: current.version + 1,
       updated_at: new Date().toISOString(),
     })

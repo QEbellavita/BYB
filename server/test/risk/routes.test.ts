@@ -19,7 +19,6 @@ function makeRow(overrides: Partial<RiskRow> = {}): RiskRow {
     category: null,
     likelihood: 3,
     impact: 3,
-    severity: 'med',
     owner_person_id: null,
     treatment: null,
     status: 'open',

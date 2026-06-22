@@ -14,8 +14,9 @@ export interface ComplaintInput {
   severity?: ComplaintSeverity
   status?: ComplaintStatus
   category?: string | null
-  customerId?: string
-  notes?: string
+  complainant_name?: string | null
+  complainant_contact?: string | null
+  assignee_person_id?: string | null
 }
 
 export interface ComplaintRow {
@@ -23,15 +24,17 @@ export interface ComplaintRow {
   workspace_id: string
   reference: string
   version: number
-  description: string
+  complainant_name: string | null
+  complainant_contact: string | null
   channel: ComplaintChannel | null
-  severity: ComplaintSeverity
-  status: ComplaintStatus
-  category: string | null
-  customer_id: string | null
-  notes: string | null
-  resolved_at: string | null
   received_at: string
+  description: string
+  category: string | null
+  severity: ComplaintSeverity
+  assignee_person_id: string | null
+  status: ComplaintStatus
+  resolution_notes: string | null
+  resolved_at: string | null
   created_at: string
   updated_at: string
 }

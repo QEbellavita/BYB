@@ -32,6 +32,16 @@ export function validateComplaint(input: unknown): ValidationResult<ComplaintInp
     category = trimmed.length > 0 ? trimmed : null
   }
 
+  // complainant_name: optional; trim
+  const nameRaw = raw['complainant_name']
+  const complainant_name: string | null =
+    typeof nameRaw === 'string' && nameRaw.trim().length > 0 ? nameRaw.trim() : null
+
+  // complainant_contact: optional; trim
+  const contactRaw = raw['complainant_contact']
+  const complainant_contact: string | null =
+    typeof contactRaw === 'string' && contactRaw.trim().length > 0 ? contactRaw.trim() : null
+
   return {
     ok: true,
     value: {
@@ -42,8 +52,9 @@ export function validateComplaint(input: unknown): ValidationResult<ComplaintInp
       severity,
       status,
       category,
-      customerId: raw['customerId'] as string | undefined,
-      notes: raw['notes'] as string | undefined,
+      complainant_name,
+      complainant_contact,
+      assignee_person_id: (raw['assignee_person_id'] as string | undefined) ?? null,
     },
   }
 }

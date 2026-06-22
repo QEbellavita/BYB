@@ -1,5 +1,3 @@
-import type { Severity } from './severity.js'
-
 export type RiskStatus = 'open' | 'mitigating' | 'accepted' | 'closed'
 
 export type ValidationResult<T> =
@@ -30,7 +28,6 @@ export interface RiskRow {
   category: string | null
   likelihood: number
   impact: number
-  severity: Severity
   owner_person_id: string | null
   treatment: string | null
   status: RiskStatus

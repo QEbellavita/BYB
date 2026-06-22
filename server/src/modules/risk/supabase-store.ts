@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { RiskRow, RiskStore } from './types.js'
-import type { Severity } from './severity.js'
 
 function mapRow(row: Record<string, unknown>): RiskRow {
   return {
@@ -12,7 +11,6 @@ function mapRow(row: Record<string, unknown>): RiskRow {
     category: (row['category'] ?? null) as string | null,
     likelihood: row['likelihood'] as number,
     impact: row['impact'] as number,
-    severity: row['severity'] as Severity,
     owner_person_id: (row['owner_person_id'] ?? null) as string | null,
     treatment: (row['treatment'] ?? null) as string | null,
     status: row['status'] as RiskRow['status'],
