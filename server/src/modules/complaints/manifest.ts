@@ -13,3 +13,4 @@ export function createComplaintsManifest(deps: ComplaintsRouterDeps): ModuleMani
     },
   }
 }
+

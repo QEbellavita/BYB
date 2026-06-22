@@ -31,20 +31,27 @@ function handleError(err: unknown, res: import('express').Response): void {
 // ---------------------------------------------------------------------------
 
 export interface ImprovementsRouterDeps {
-  service: ImprovementService
+  /** Factory that produces a per-request RLS-scoped service from the bearer token. */
+  makeService: (token: string) => ImprovementService
   auth: RequireAuthDeps
   workspace: RequireWorkspaceDeps
 }
 
 export function createImprovementsRouter(deps: ImprovementsRouterDeps): Router {
   const router = Router()
-  const { service, auth, workspace } = deps
+  const { makeService, auth, workspace } = deps
 
   const authWs = () => authedWorkspaceRoute({ auth, workspace })
+
+  function resolveService(req: import('express').Request): ImprovementService {
+    const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
+    return makeService(token)
+  }
 
   // GET /improvements
   router.get('/improvements', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const status = req.query['status'] as string | undefined
       const improvements = await service.list(ctx, status)
@@ -57,6 +64,7 @@ export function createImprovementsRouter(deps: ImprovementsRouterDeps): Router {
   // POST /improvements
   router.post('/improvements', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const row = await service.create(ctx, req.body)
       res.status(201).json(row)
@@ -68,6 +76,7 @@ export function createImprovementsRouter(deps: ImprovementsRouterDeps): Router {
   // PUT /improvements/:id
   router.put('/improvements/:id', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const row = await service.update(ctx, req.params.id, req.body)
       res.json(row)
@@ -79,6 +88,7 @@ export function createImprovementsRouter(deps: ImprovementsRouterDeps): Router {
   // POST /improvements/:id/status
   router.post('/improvements/:id/status', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const { status } = req.body as { status: string }
       if (!status) {

@@ -51,7 +51,19 @@ function buildApp(service: ComplaintService, userRole = 'owner') {
   const fakeAuth = { getUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'u@test.com' }) }
   const fakeMembership = { getMembership: vi.fn().mockResolvedValue({ role: userRole, permissions: {} }) }
 
-  const router = createComplaintsRouter({ service, auth: fakeAuth, workspace: fakeMembership })
+  const router = createComplaintsRouter({ makeService: () => service, auth: fakeAuth, workspace: fakeMembership })
+  app.use('/api/m/complaints', router)
+  return app
+}
+
+function buildAppWithFactory(makeService: (token: string) => ComplaintService, userRole = 'owner') {
+  const app = express()
+  app.use(express.json())
+
+  const fakeAuth = { getUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'u@test.com' }) }
+  const fakeMembership = { getMembership: vi.fn().mockResolvedValue({ role: userRole, permissions: {} }) }
+
+  const router = createComplaintsRouter({ makeService, auth: fakeAuth, workspace: fakeMembership })
   app.use('/api/m/complaints', router)
   return app
 }
@@ -134,6 +146,50 @@ describe('PUT /api/m/complaints/complaints/:id', () => {
       .set('x-workspace-id', 'ws-1')
       .send({ description: 'Updated complaint', version: 1 })
     expect(res.status).toBe(200)
+  })
+})
+
+describe('makeService factory — RLS backstop', () => {
+  it('calls makeService factory with the bearer token from Authorization header', async () => {
+    const capturedTokens: string[] = []
+    const fakeService = makeFakeService()
+    const makeService = vi.fn((token: string) => {
+      capturedTokens.push(token)
+      return fakeService
+    })
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .get('/api/m/complaints/complaints')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+    expect(res.status).toBe(200)
+    expect(makeService).toHaveBeenCalledOnce()
+    expect(capturedTokens[0]).toBe('test-token')
+  })
+
+  it('list returns 200 via factory-produced service', async () => {
+    const fakeService = makeFakeService()
+    const makeService = vi.fn(() => fakeService)
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .get('/api/m/complaints/complaints')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ complaints: expect.any(Array) })
+  })
+
+  it('create returns 201 via factory-produced service', async () => {
+    const fakeService = makeFakeService()
+    const makeService = vi.fn(() => fakeService)
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .post('/api/m/complaints/complaints')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+      .send({ description: 'Customer very unhappy' })
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({ id: 'complaint-1' })
   })
 })
 
