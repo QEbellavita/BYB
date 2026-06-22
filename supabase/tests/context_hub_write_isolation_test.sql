@@ -39,8 +39,8 @@ insert into entity_versions(id,workspace_id,entity_type,entity_id,version,snapsh
   ('33333333-3333-3333-3333-333333333309','22222222-2222-2222-2222-222222222201','business_rules',gen_random_uuid(),1,'{}','active');
 insert into context_events(id,workspace_id,type,entity_type,entity_id) values
   ('33333333-3333-3333-3333-333333333310','22222222-2222-2222-2222-222222222201','business_rules.insert','business_rules',gen_random_uuid());
-insert into context_links(id,workspace_id,from_type,from_id,to_type,to_id) values
-  ('33333333-3333-3333-3333-333333333311','22222222-2222-2222-2222-222222222201','business_rules',gen_random_uuid(),'compliance_obligations',gen_random_uuid());
+insert into context_links(id,workspace_id,from_type,from_id,to_type,to_id,relation) values
+  ('33333333-3333-3333-3333-333333333311','22222222-2222-2222-2222-222222222201','business_rules',gen_random_uuid(),'compliance_obligations',gen_random_uuid(),'G relation');
 
 -- switch to H (foreign tenant)
 set local role authenticated;
@@ -226,7 +226,7 @@ select is(
 
 select is(
   (select relation from context_links where id='33333333-3333-3333-3333-333333333311'),
-  null,
+  'G relation',
   'context_links: foreign member cannot update another workspace row');
 
 select * from finish();
