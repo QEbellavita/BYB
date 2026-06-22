@@ -42,14 +42,14 @@ async function getSupabaseMock() {
 }
 
 describe('App gate', () => {
-  it('renders "Loading BYB" while session is loading', async () => {
+  it('renders "Loading BtG" while session is loading', async () => {
     const supabase = await getSupabaseMock()
     // getSession never resolves immediately — simulate pending
     vi.mocked(supabase.auth.getSession).mockReturnValue(new Promise(() => {}))
 
     render(<App />)
 
-    expect(screen.getByText(/loading byb/i)).toBeInTheDocument()
+    expect(screen.getByText(/loading btg/i)).toBeInTheDocument()
   })
 
   it('renders the marketing landing when signed out (default route)', async () => {

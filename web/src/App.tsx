@@ -122,7 +122,7 @@ export function App() {
 
   // Initial auth check — brief, before we know whether anyone is signed in.
   if (appState === 'auth-loading') {
-    return <p>Loading BYB</p>
+    return <p>Loading BtG</p>
   }
 
   // Signed-out: the marketing site + demo preview (no backend needed).

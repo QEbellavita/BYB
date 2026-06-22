@@ -49,13 +49,13 @@ export function Landing({ onStart, onSignIn }: LandingProps) {
       {/* ── NAV ───────────────────────────────────────────── */}
       <header className="lp-nav">
         <div className="container lp-nav__inner">
-          <a className="brand" href="#/" aria-label="BYB home">
+          <a className="brand" href="#/" aria-label="BtG home">
             <span className="brand__mark" aria-hidden="true">
               <span className="brand__core" />
             </span>
             <span className="brand__type">
-              <strong>BYB</strong>
-              <em>Build Your Business</em>
+              <strong>BtG</strong>
+              <em>Build the Guild</em>
             </span>
           </a>
           <nav className="lp-nav__links" aria-label="Primary">
@@ -169,7 +169,7 @@ export function Landing({ onStart, onSignIn }: LandingProps) {
               Compliance that knows<br />where you operate.
             </h2>
             <p className="compliance__lede">
-              Choose your ANZSIC industry code and jurisdiction. BYB maps it to the
+              Choose your ANZSIC industry code and jurisdiction. BtG maps it to the
               obligations, calendars and public holidays that apply to you — and keeps
               them current as the rules change.
             </p>
@@ -207,10 +207,10 @@ export function Landing({ onStart, onSignIn }: LandingProps) {
         <div className="container titleblock__inner">
           <div className="tb tb--brand">
             <span className="brand__mark" aria-hidden="true"><span className="brand__core" /></span>
-            <strong>BYB</strong>
+            <strong>BtG</strong>
           </div>
           <dl className="tb tb--meta">
-            <div><dt>Project</dt><dd>BYB Platform</dd></div>
+            <div><dt>Project</dt><dd>BtG Platform</dd></div>
             <div><dt>Discipline</dt><dd>Context-Driven OS</dd></div>
             <div><dt>Region</dt><dd>AU · NZ</dd></div>
           </dl>
@@ -227,7 +227,7 @@ export function Landing({ onStart, onSignIn }: LandingProps) {
           </nav>
         </div>
         <div className="container titleblock__rule mono">
-          <span>© {2026} BYB — Build Your Business</span>
+          <span>© {2026} BtG — Build the Guild</span>
           <span>Drawn to spec · one source of truth</span>
         </div>
       </footer>
