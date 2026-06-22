@@ -7,7 +7,9 @@ const base = (limit: number, windowMs: number, overrides?: Partial<Options>): Re
   rateLimit({
     windowMs,
     limit,
-    standardHeaders: true,
+    // 'draft-8' = the current IETF RateLimit header standard (single combined header).
+    // v8 still accepts `true` but maps it to the legacy draft-6 triple-header format.
+    standardHeaders: 'draft-8',
     legacyHeaders: false,
     message: { error: 'too many requests' },
     ...overrides,
