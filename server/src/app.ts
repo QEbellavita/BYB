@@ -30,9 +30,11 @@ import { makePublish } from './events/publish.js'
 import { registerModules } from './modules/loader.js'
 import { consoleTransport, createEmailService } from './services/email.js'
 import type { BootstrapWorkspace } from './modules/onboarding/routes.js'
+import { apiRateLimiter } from './middleware/rate-limit.js'
 
 export function createApp(config?: AppConfig): express.Express {
   const app = express()
+  app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1))
   app.disable('x-powered-by')
   app.use(securityHeaders())
   app.use(corsMiddleware(process.env.CORS_ORIGIN))
@@ -43,6 +45,7 @@ export function createApp(config?: AppConfig): express.Express {
     next(err)
   })
   app.use(healthRouter)
+  app.use(apiRateLimiter())
   if (config) {
     app.use(meRouter(config))
 
