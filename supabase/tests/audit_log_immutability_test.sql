@@ -1,7 +1,8 @@
 -- audit_log_immutability_test.sql
 -- Verifies audit_log is append-only: service_role can INSERT but cannot UPDATE or DELETE.
+-- Also verifies authenticated role cannot INSERT, UPDATE, or DELETE.
 begin;
-select plan(3);
+select plan(6);
 
 -- Seed as superuser (default role before set local)
 insert into auth.users(id,email) values
@@ -38,6 +39,36 @@ select throws_ok(
   '42501',
   null,
   'service_role cannot DELETE from audit_log (42501)'
+);
+
+-- Switch to authenticated role to verify INSERT/UPDATE/DELETE are all denied (42501)
+-- Set JWT claims so the role is valid; INSERT privilege is gone so it fails on privilege check
+-- before RLS even runs.
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}';
+
+-- (4) authenticated cannot INSERT (privilege revoked)
+select throws_ok(
+  $$insert into public.audit_log(action) values('x')$$,
+  '42501',
+  null,
+  'authenticated cannot INSERT into audit_log (42501)'
+);
+
+-- (5) authenticated cannot UPDATE
+select throws_ok(
+  $$update public.audit_log set action = 'tampered'$$,
+  '42501',
+  null,
+  'authenticated cannot UPDATE audit_log (42501)'
+);
+
+-- (6) authenticated cannot DELETE
+select throws_ok(
+  $$delete from public.audit_log$$,
+  '42501',
+  null,
+  'authenticated cannot DELETE from audit_log (42501)'
 );
 
 select * from finish();

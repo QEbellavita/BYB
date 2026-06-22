@@ -29,6 +29,10 @@ create policy audit_select_admin on public.audit_log
   for select
   using (public.is_workspace_admin(workspace_id));
 
+-- NOTE (v1 limitation): rows with workspace_id IS NULL (e.g. auth.denied events with no
+-- workspace) are invisible via this policy (is_workspace_admin(NULL) is false). Reading
+-- cross-workspace/system security events requires a future service-role/superadmin path.
+
 -- Grants: authenticated gets SELECT (RLS-gated); service_role gets INSERT only
 grant select on public.audit_log to authenticated;
 grant insert on public.audit_log to service_role;
@@ -36,7 +40,8 @@ grant insert on public.audit_log to service_role;
 -- Identity sequence access for service_role emitter
 grant usage, select on sequence public.audit_log_id_seq to service_role;
 
--- Append-only enforcement: revoke UPDATE and DELETE from all app roles
--- NOTE: service_role has BYPASSRLS but NOT table-privilege bypass, so this REVOKE
--- genuinely prevents UPDATE/DELETE even for service_role.
-revoke update, delete on public.audit_log from authenticated, service_role;
+-- Append-only: authenticated may only SELECT (RLS-gated); service_role may only INSERT/SELECT.
+-- (Supabase default privileges grant authenticated all table privs on owner-created tables,
+--  so we must explicitly revoke insert/update/delete/truncate.)
+revoke insert, update, delete, truncate on public.audit_log from authenticated;
+revoke update, delete, truncate on public.audit_log from service_role;
