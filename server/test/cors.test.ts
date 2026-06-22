@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 import { createApp } from '../src/app.js'
@@ -8,7 +8,6 @@ function makeApp(originSpec?: string) {
   const app = express()
   app.use(corsMiddleware(originSpec))
   app.get('/t', (_req, res) => res.json({ ok: true }))
-  app.options('/t', (_req, res) => { res.sendStatus(204) })
   return app
 }
 
@@ -46,5 +45,21 @@ describe('CORS', () => {
     const app = makeApp('https://a.example.com')
     const res = await request(app).options('/t').set('Origin', 'https://a.example.com')
     expect(res.status).toBe(204)
+  })
+
+  it('warns when CORS_ORIGIN is "*" in production', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    try { corsMiddleware('*'); expect(warn).toHaveBeenCalled() }
+    finally { process.env.NODE_ENV = prev; warn.mockRestore() }
+  })
+
+  it('does not warn with an explicit allowlist in production', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    try { corsMiddleware('https://a.example.com'); expect(warn).not.toHaveBeenCalled() }
+    finally { process.env.NODE_ENV = prev; warn.mockRestore() }
   })
 })
