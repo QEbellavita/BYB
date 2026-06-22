@@ -1,7 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import request from 'supertest'
 import { createApp } from '../src/app.js'
 
+beforeEach(() => { delete process.env.NODE_ENV })
 afterEach(() => { delete process.env.NODE_ENV })
 
 describe('security headers', () => {

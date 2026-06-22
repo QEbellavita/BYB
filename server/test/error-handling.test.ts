@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import request from 'supertest'
 import { createApp } from '../src/app.js'
 
 describe('request hardening', () => {
+  afterEach(() => { delete process.env.BODY_LIMIT })
+
   it('rejects malformed JSON with 400 (not 500)', async () => {
     const res = await request(createApp())
       .post('/api/me').set('Content-Type', 'application/json').send('{bad json')
@@ -14,6 +16,5 @@ describe('request hardening', () => {
     const res = await request(createApp())
       .post('/api/me').set('Content-Type', 'application/json').send(big)
     expect(res.status).toBe(413)
-    delete process.env.BODY_LIMIT
   })
 })
