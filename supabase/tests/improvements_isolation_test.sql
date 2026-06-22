@@ -1,5 +1,5 @@
 begin;
-select plan(4);
+select plan(6);
 
 -- C/D fixture: two tenants, each with an owner
 insert into auth.users(id,email) values
@@ -47,6 +47,25 @@ set local "request.jwt.claims" =
 select is((select count(*)::int from improvements
   where workspace_id='cccccccc-0000-0000-0000-000000000001'),
   0, 'other tenant cannot see C improvements');
+
+-- cross-tenant write-denial: D member cannot INSERT into C's workspace
+select throws_ok(
+  $$insert into improvements(workspace_id,source,title,status)
+    values('cccccccc-0000-0000-0000-000000000001','manual','injected','open')$$,
+  '42501', null, 'improvements: foreign member cannot insert into another workspace');
+
+-- cross-tenant write-denial: D member cannot UPDATE C's rows (USING hides them → 0 rows changed)
+do $$
+begin
+  update improvements set title='pwned'
+  where workspace_id='cccccccc-0000-0000-0000-000000000001';
+end $$;
+set local "request.jwt.claims" =
+  '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}';
+select is(
+  (select title from improvements where id='aaaaaaaa-0000-0000-0000-000000000009'),
+  'idea',
+  'improvements: foreign member cannot update another workspace row');
 
 select * from finish();
 rollback;

@@ -48,7 +48,19 @@ function buildApp(service: RiskService, userRole = 'owner') {
   const fakeAuth = { getUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'u@test.com' }) }
   const fakeMembership = { getMembership: vi.fn().mockResolvedValue({ role: userRole, permissions: {} }) }
 
-  const router = createRiskRouter({ service, auth: fakeAuth, workspace: fakeMembership })
+  const router = createRiskRouter({ makeService: () => service, auth: fakeAuth, workspace: fakeMembership })
+  app.use('/api/m/risk', router)
+  return app
+}
+
+function buildAppWithFactory(makeService: (token: string) => RiskService, userRole = 'owner') {
+  const app = express()
+  app.use(express.json())
+
+  const fakeAuth = { getUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'u@test.com' }) }
+  const fakeMembership = { getMembership: vi.fn().mockResolvedValue({ role: userRole, permissions: {} }) }
+
+  const router = createRiskRouter({ makeService, auth: fakeAuth, workspace: fakeMembership })
   app.use('/api/m/risk', router)
   return app
 }
@@ -145,5 +157,49 @@ describe('POST /api/m/risk/risks/:id/close', () => {
       .set('x-workspace-id', 'ws-1')
     expect(res.status).toBe(200)
     expect(res.body).toMatchObject({ status: 'closed' })
+  })
+})
+
+describe('makeService factory — RLS backstop', () => {
+  it('calls makeService factory with the bearer token from Authorization header', async () => {
+    const capturedTokens: string[] = []
+    const fakeService = makeFakeService()
+    const makeService = vi.fn((token: string) => {
+      capturedTokens.push(token)
+      return fakeService
+    })
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .get('/api/m/risk/risks')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+    expect(res.status).toBe(200)
+    expect(makeService).toHaveBeenCalledOnce()
+    expect(capturedTokens[0]).toBe('test-token')
+  })
+
+  it('list returns 200 via factory-produced service', async () => {
+    const fakeService = makeFakeService()
+    const makeService = vi.fn(() => fakeService)
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .get('/api/m/risk/risks')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ risks: expect.any(Array) })
+  })
+
+  it('create returns 201 via factory-produced service', async () => {
+    const fakeService = makeFakeService()
+    const makeService = vi.fn(() => fakeService)
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .post('/api/m/risk/risks')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+      .send({ title: 'Fire Risk', likelihood: 3, impact: 4 })
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({ id: 'risk-1' })
   })
 })

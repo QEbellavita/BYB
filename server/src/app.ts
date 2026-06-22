@@ -118,28 +118,29 @@ export function createApp(config?: AppConfig): express.Express {
       return data ? (data as Record<string, unknown>).enabled === true : null
     }
 
-    // ---- Per-request onboarding service factory ----
-    // We create a single shared service; per-request RLS is handled at the store level
-    // by using userScopedClient inside route handlers for bootstrap, and the shared
-    // hubStore + onboardingStore use service-role (safe since routes enforce auth+admin gate)
-    const hubStore = supabaseHubStore(service)
-
+    // ---- Onboarding: shared stores ----
+    // onboardingStore uses service-role: session reads/writes are not tenant-data rows but
+    // orchestration state; RLS on hub rows is enforced via the per-request hubStore below.
     const onboardingStore = supabaseOnboardingStore(service)
 
-    const onboardingService = createOnboardingService({
-      hub: ContextHub,
-      hubStore,
-      onboardingStore,
-      completionStore,
-      sendInvite: async (invite) => {
-        await emailService.send(
-          invite.email,
-          'You have been invited to a workspace',
-          'You have been invited to join workspace {{workspaceId}}. Your invite token is {{token}}.',
-          { workspaceId: invite.workspaceId, token: invite.token }
-        )
-      },
-    })
+    // ---- Per-request onboarding service factory ----
+    // hubStore is user-scoped per request so Postgres RLS enforces tenant isolation on Hub writes
+    // (saveProfile/saveRules/saveIndustry/savePeople). onboardingStore stays service-role (see above).
+    const makeOnboardingService = (token: string) =>
+      createOnboardingService({
+        hub: ContextHub,
+        hubStore: supabaseHubStore(userScopedClient(config, token)),
+        onboardingStore,
+        completionStore, // service-role: calls the SECURITY DEFINER complete_onboarding RPC
+        sendInvite: async (invite) => {
+          await emailService.send(
+            invite.email,
+            'You have been invited to a workspace',
+            'You have been invited to join workspace {{workspaceId}}. Your invite token is {{token}}.',
+            { workspaceId: invite.workspaceId, token: invite.token }
+          )
+        },
+      })
 
     // ---- Workspace creation helper ----
     const createWorkspaceAction = async (accessToken: string, name: string) => {
@@ -161,20 +162,40 @@ export function createApp(config?: AppConfig): express.Express {
     const registry = createRegistry()
     const eventStore = supabaseEventStore(service)
     const publish = makePublish(service, eventStore, registry)
-    const linkStore = supabaseLinkStore(service)
     // Note: registerImprovementSubscriber called after stores are built below
 
     // ---- Risk module ----
+    // Per-request factory: each request gets a userScopedClient so Postgres RLS enforces tenant isolation.
+    // publish stays service-role (it owns the outbox/dispatch).
+    const makeRiskService = (token: string) =>
+      createRiskService({
+        store: supabaseRiskStore(userScopedClient(config, token)),
+        publish,
+        links,
+        linkStore: supabaseLinkStore(userScopedClient(config, token)),
+      })
+    // Service-role riskStore for the improvement subscriber (background event handler, not user-initiated).
     const riskStore = supabaseRiskStore(service)
-    const riskService = createRiskService({ store: riskStore, publish, links, linkStore })
 
     // ---- Complaints module ----
+    // Per-request factory: store and linkStore use userScopedClient so Postgres RLS enforces
+    // tenant isolation. publish stays service-role (owns the outbox/dispatch).
+    const makeComplaintsService = (token: string) =>
+      createComplaintsService({
+        store: supabaseComplaintsStore(userScopedClient(config, token)),
+        publish,
+        links,
+        linkStore: supabaseLinkStore(userScopedClient(config, token)),
+      })
+    // service-role complaintsStore for the improvement subscriber (background event handler, not user-initiated)
     const complaintsStore = supabaseComplaintsStore(service)
-    const complaintsService = createComplaintsService({ store: complaintsStore, publish, links, linkStore })
 
     // ---- Improvements module ----
+    // Per-request factory: store uses userScopedClient so Postgres RLS enforces tenant isolation.
+    const makeImprovementsService = (token: string) =>
+      createImprovementService({ store: supabaseImprovementsStore(userScopedClient(config, token)) })
+    // service-role improvementsStore for the subscriber (background event handler, not user-initiated)
     const improvementsStore = supabaseImprovementsStore(service)
-    const improvementsService = createImprovementService({ store: improvementsStore })
 
     // ---- Wire improvement subscriber (after all stores are built) ----
     registerImprovementSubscriber(
@@ -185,7 +206,7 @@ export function createApp(config?: AppConfig): express.Express {
 
     // ---- Register modules ----
     const manifest = createOnboardingManifest({
-      service: onboardingService,
+      makeService: makeOnboardingService,
       auth: authDeps,
       workspace: workspaceDeps,
       onboardingStore,
@@ -193,19 +214,19 @@ export function createApp(config?: AppConfig): express.Express {
     })
 
     const riskManifest = createRiskManifest({
-      service: riskService,
+      makeService: makeRiskService,
       auth: authDeps,
       workspace: workspaceDeps,
     })
 
     const complaintsManifest = createComplaintsManifest({
-      service: complaintsService,
+      makeService: makeComplaintsService,
       auth: authDeps,
       workspace: workspaceDeps,
     })
 
     const improvementsManifest = createImprovementsManifest({
-      service: improvementsService,
+      makeService: makeImprovementsService,
       auth: authDeps,
       workspace: workspaceDeps,
     })

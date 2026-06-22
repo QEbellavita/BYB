@@ -1,5 +1,5 @@
 begin;
-select plan(3);
+select plan(5);
 insert into auth.users(id,email) values
   ('00000000-0000-0000-0000-0000000000c1','owner-c@test.dev'),
   ('00000000-0000-0000-0000-0000000000d1','owner-d@test.dev');
@@ -27,5 +27,25 @@ set local "request.jwt.claims" =
 select is((select count(*)::int from complaints
   where workspace_id='cccccccc-0000-0000-0000-000000000001'),
   0, 'other tenant cannot see C complaints');
+
+-- cross-tenant write-denial: D member cannot INSERT into C's workspace
+select throws_ok(
+  $$insert into complaints(workspace_id,reference,description)
+    values('cccccccc-0000-0000-0000-000000000001','C-EVIL','injected complaint')$$,
+  '42501', null, 'complaints: foreign member cannot insert into another workspace');
+
+-- cross-tenant write-denial: D member cannot UPDATE C's rows (USING hides them → 0 rows changed)
+do $$
+begin
+  update complaints set description='pwned'
+  where workspace_id='cccccccc-0000-0000-0000-000000000001';
+end $$;
+set local "request.jwt.claims" =
+  '{"sub":"00000000-0000-0000-0000-0000000000c1","role":"authenticated"}';
+select is(
+  (select description from complaints where id='ffffffff-0000-0000-0000-000000000001'),
+  'late delivery',
+  'complaints: foreign member cannot update another workspace row');
+
 select * from finish();
 rollback;

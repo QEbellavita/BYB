@@ -44,7 +44,19 @@ function buildApp(service: ImprovementService, userRole = 'owner') {
   const fakeAuth = { getUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'u@test.com' }) }
   const fakeMembership = { getMembership: vi.fn().mockResolvedValue({ role: userRole, permissions: {} }) }
 
-  const router = createImprovementsRouter({ service, auth: fakeAuth, workspace: fakeMembership })
+  const router = createImprovementsRouter({ makeService: () => service, auth: fakeAuth, workspace: fakeMembership })
+  app.use('/api/m/improvements', router)
+  return app
+}
+
+function buildAppWithFactory(makeService: (token: string) => ImprovementService, userRole = 'owner') {
+  const app = express()
+  app.use(express.json())
+
+  const fakeAuth = { getUser: vi.fn().mockResolvedValue({ id: 'user-1', email: 'u@test.com' }) }
+  const fakeMembership = { getMembership: vi.fn().mockResolvedValue({ role: userRole, permissions: {} }) }
+
+  const router = createImprovementsRouter({ makeService, auth: fakeAuth, workspace: fakeMembership })
   app.use('/api/m/improvements', router)
   return app
 }
@@ -156,6 +168,50 @@ describe('PUT /api/m/improvements/improvements/:id', () => {
       .send({ title: 'Updated' })
     expect(res.status).toBe(400)
     expect(res.body).toMatchObject({ errors: { version: 'Required for update' } })
+  })
+})
+
+describe('makeService factory — RLS backstop', () => {
+  it('calls makeService factory with the bearer token from Authorization header', async () => {
+    const capturedTokens: string[] = []
+    const fakeService = makeFakeService()
+    const makeService = vi.fn((token: string) => {
+      capturedTokens.push(token)
+      return fakeService
+    })
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .get('/api/m/improvements/improvements')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+    expect(res.status).toBe(200)
+    expect(makeService).toHaveBeenCalledOnce()
+    expect(capturedTokens[0]).toBe('test-token')
+  })
+
+  it('list returns 200 via factory-produced service', async () => {
+    const fakeService = makeFakeService()
+    const makeService = vi.fn(() => fakeService)
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .get('/api/m/improvements/improvements')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ improvements: expect.any(Array) })
+  })
+
+  it('create returns 201 via factory-produced service', async () => {
+    const fakeService = makeFakeService()
+    const makeService = vi.fn(() => fakeService)
+    const app = buildAppWithFactory(makeService)
+    const res = await request(app)
+      .post('/api/m/improvements/improvements')
+      .set('authorization', 'Bearer test-token')
+      .set('x-workspace-id', 'ws-1')
+      .send({ title: 'Improve the risk process' })
+    expect(res.status).toBe(201)
+    expect(res.body).toMatchObject({ id: 'imp-1' })
   })
 })
 

@@ -113,7 +113,7 @@ async function buildApp(service: OnboardingService, opts: {
 
   // Module routes (under /api/m/onboarding)
   const mRouter = createOnboardingRouter({
-    service,
+    makeService: () => service,
     auth: fakeAuth,
     workspace: fakeMembership,
     onboardingStore: fakeOnboardingStore,
