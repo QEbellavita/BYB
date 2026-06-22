@@ -15,7 +15,7 @@ afterEach(() => {
 })
 
 function mockFetch(body: unknown) {
-  const fn = vi.fn(async () =>
+  const fn = vi.fn(async (_url: string, _init?: RequestInit) =>
     new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }),
   )
   vi.stubGlobal('fetch', fn)
