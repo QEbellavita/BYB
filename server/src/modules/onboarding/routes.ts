@@ -6,6 +6,7 @@ import { requireWorkspaceAdmin } from '../../middleware/require-workspace-admin.
 import { strictRateLimiter } from '../../middleware/rate-limit.js'
 import { StaleDraftError } from './service.js'
 import type { OnboardingService, OnboardingStore } from './types.js'
+import type { AuditRecorder } from '../../services/audit.js'
 
 // ---------------------------------------------------------------------------
 // Error handler helper — centralised mapping for route handlers
@@ -72,6 +73,7 @@ export interface OnboardingRouterDeps {
   workspace: RequireWorkspaceDeps
   makeOnboardingStore: (token: string) => OnboardingStore
   createWorkspace: (accessToken: string, name: string) => Promise<{ workspaceId: string }>
+  audit?: AuditRecorder
 }
 
 export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
@@ -80,6 +82,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   const strict = strictRateLimiter()
 
   const authWs = () => authedWorkspaceRoute({ auth, workspace })
+  const adminGuard = () => requireWorkspaceAdmin({ audit: deps.audit })
 
   function resolveService(req: import('express').Request): OnboardingService {
     const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
@@ -108,7 +111,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- GET /session -----
-  router.get('/session', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
+  router.get('/session', ...authWs(), adminGuard(), async (req, res) => {
     try {
       const ctx = {
         workspaceId: req.workspaceId!,
@@ -129,7 +132,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- PUT /profile -----
-  router.put('/profile', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
+  router.put('/profile', ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
@@ -144,7 +147,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- PUT /rules -----
-  router.put('/rules', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
+  router.put('/rules', ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
@@ -159,7 +162,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- PUT /industry -----
-  router.put('/industry', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
+  router.put('/industry', ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
@@ -174,7 +177,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- PUT /people -----
-  router.put('/people', ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
+  router.put('/people', ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
@@ -189,7 +192,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- POST /finish -----
-  router.post('/finish', strict, ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
+  router.post('/finish', strict, ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
@@ -203,7 +206,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- POST /retry/:id -----
-  router.post('/retry/:id', strict, ...authWs(), requireWorkspaceAdmin(), async (req, res) => {
+  router.post('/retry/:id', strict, ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }

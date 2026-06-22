@@ -221,6 +221,7 @@ export function createApp(config?: AppConfig): express.Express {
       workspace: workspaceDeps,
       makeOnboardingStore,
       createWorkspace: createWorkspaceAction,
+      audit: auditService,
     })
 
     const riskManifest = createRiskManifest({

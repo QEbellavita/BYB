@@ -8,6 +8,8 @@ import request from 'supertest'
 import { requireAuth } from '../src/middleware/require-auth.js'
 import { requireWorkspaceAdmin } from '../src/middleware/require-workspace-admin.js'
 import type { AuditRecorder } from '../src/services/audit.js'
+import { createOnboardingRouter } from '../src/modules/onboarding/routes.js'
+import type { OnboardingRouterDeps } from '../src/modules/onboarding/routes.js'
 
 function makeRecorder(): { recorder: AuditRecorder; calls: unknown[] } {
   const calls: unknown[] = []
@@ -129,5 +131,94 @@ describe('requireWorkspaceAdmin + audit recorder', () => {
     app.get('/x', requireWorkspaceAdmin(), (_req, res) => res.json({ ok: true }))
     const res = await request(app).get('/x')
     expect(res.status).toBe(200)
+  })
+})
+
+// ── createOnboardingRouter — production audit wiring end-to-end ──────────────
+
+describe('createOnboardingRouter + audit recorder — authz.denied fires through router', () => {
+  function makeRecorder(): { recorder: AuditRecorder; calls: unknown[] } {
+    const calls: unknown[] = []
+    const recorder: AuditRecorder = {
+      record: vi.fn(async (e) => { calls.push(e) }),
+    }
+    return { recorder, calls }
+  }
+
+  function buildRouterApp(memberRole: string, recorder: AuditRecorder) {
+    // Minimal stub implementations — only enough for the middleware chain
+    const deps: OnboardingRouterDeps = {
+      auth: {
+        getUser: async () => ({ id: 'user-router-test', email: 'test@example.com' }),
+      },
+      workspace: {
+        getMembership: async (_token, _wsId) => ({ role: memberRole, permissions: {} }),
+      },
+      makeService: (_token) => ({
+        load: vi.fn(),
+        saveProfile: vi.fn(),
+        saveRules: vi.fn(),
+        saveIndustry: vi.fn(),
+        savePeople: vi.fn(),
+        finish: vi.fn(),
+        retryInvitation: vi.fn(),
+      } as any),
+      makeOnboardingStore: (_token) => ({
+        createSession: vi.fn(),
+        getSession: vi.fn(),
+        updateProgress: vi.fn(),
+        listInviteDrafts: vi.fn(),
+        reconcileInviteDrafts: vi.fn(),
+        markInviteDelivery: vi.fn(),
+      } as any),
+      createWorkspace: vi.fn(),
+      audit: recorder,
+    }
+
+    const app = express()
+    app.use(express.json())
+    app.use(createOnboardingRouter(deps))
+    return app
+  }
+
+  it('403 on PUT /profile with non-admin role AND spy recorder receives authz.denied', async () => {
+    const { recorder, calls } = makeRecorder()
+    const app = buildRouterApp('member', recorder)
+
+    const res = await request(app)
+      .put('/profile')
+      .set('Authorization', 'Bearer valid-token')
+      .set('x-workspace-id', 'ws-abc')
+      .set('x-request-id', 'req-xyz-123')
+      .send({ name: 'Test' })
+
+    expect(res.status).toBe(403)
+    // Allow micro-task flush so the fire-and-forget void Promise resolves
+    await new Promise((r) => setTimeout(r, 10))
+    expect(calls).toHaveLength(1)
+    const ev = calls[0] as Record<string, unknown>
+    expect(ev.action).toBe('authz.denied')
+    expect(ev.actor).toBe('user-router-test')
+    expect(ev.workspaceId).toBe('ws-abc')
+    const meta = ev.metadata as Record<string, unknown>
+    expect(meta.requestId).toBe('req-xyz-123')
+  })
+
+  it('does NOT fire authz.denied when user is admin', async () => {
+    const { recorder, calls } = makeRecorder()
+    // saveProfile will throw since store returns undefined, but that's fine — we just want no audit event
+    const app = buildRouterApp('admin', recorder)
+
+    await request(app)
+      .put('/profile')
+      .set('Authorization', 'Bearer valid-token')
+      .set('x-workspace-id', 'ws-abc')
+      .set('x-request-id', 'req-xyz-admin')
+      .send({ name: 'Test' })
+
+    await new Promise((r) => setTimeout(r, 10))
+    // No authz.denied — request passed the guard (may 500 from missing store, but no audit event)
+    const authzCalls = (calls as Array<Record<string, unknown>>).filter(e => e.action === 'authz.denied')
+    expect(authzCalls).toHaveLength(0)
   })
 })

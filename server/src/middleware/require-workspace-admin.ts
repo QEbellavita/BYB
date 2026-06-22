@@ -12,7 +12,7 @@ export function requireWorkspaceAdmin(opts?: RequireWorkspaceAdminOpts): Request
         action: 'authz.denied',
         actor: req.user?.id ?? null,
         workspaceId: req.workspaceId ?? null,
-        metadata: { ip: req.ip, route: req.path, method: req.method },
+        metadata: { ip: req.ip, route: req.path, method: req.method, requestId: (req.headers['x-request-id'] as string | undefined) ?? null },
       })
       return res.status(403).json({ error: 'no workspace context' })
     }
@@ -21,7 +21,7 @@ export function requireWorkspaceAdmin(opts?: RequireWorkspaceAdminOpts): Request
         action: 'authz.denied',
         actor: req.user?.id ?? null,
         workspaceId: req.workspaceId ?? null,
-        metadata: { ip: req.ip, route: req.path, method: req.method },
+        metadata: { ip: req.ip, route: req.path, method: req.method, requestId: (req.headers['x-request-id'] as string | undefined) ?? null },
       })
       return res.status(403).json({ error: 'owner or admin required' })
     }

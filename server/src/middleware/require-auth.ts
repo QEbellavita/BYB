@@ -25,7 +25,7 @@ export function requireAuth(deps: RequireAuthDeps): RequestHandler {
     if (!token) {
       void deps.audit?.record({
         action: 'auth.denied',
-        metadata: { ip: req.ip, route: req.path, method: req.method },
+        metadata: { ip: req.ip, route: req.path, method: req.method, requestId: (req.headers['x-request-id'] as string | undefined) ?? null },
       })
       return res.status(401).json({ error: 'missing bearer token' })
     }
@@ -33,7 +33,7 @@ export function requireAuth(deps: RequireAuthDeps): RequestHandler {
     if (!user) {
       void deps.audit?.record({
         action: 'auth.denied',
-        metadata: { ip: req.ip, route: req.path, method: req.method },
+        metadata: { ip: req.ip, route: req.path, method: req.method, requestId: (req.headers['x-request-id'] as string | undefined) ?? null },
       })
       return res.status(401).json({ error: 'invalid token' })
     }
