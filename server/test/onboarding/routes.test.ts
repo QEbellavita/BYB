@@ -6,13 +6,6 @@ import type { CompletionStore } from '../../src/context/onboarding.js'
 import { StaleDraftError } from '../../src/modules/onboarding/service.js'
 
 // ---------------------------------------------------------------------------
-// Token helpers
-// ---------------------------------------------------------------------------
-
-/** A fake JWT-shaped token encoding aal2 — used for routes gated by requireAAL2 */
-const AAL2_TOKEN = `h.${Buffer.from(JSON.stringify({ sub: 'user-1', aal: 'aal2' })).toString('base64url')}.sig`
-
-// ---------------------------------------------------------------------------
 // Fake session/snapshot helpers
 // ---------------------------------------------------------------------------
 
@@ -266,12 +259,12 @@ describe('GET /api/m/onboarding/session', () => {
 })
 
 describe('POST /api/m/onboarding/finish', () => {
-  it('returns 200 for owner and returns finish result', async () => {
+  it('returns 200 for owner with aal1 token (onboarding precedes MFA enrollment)', async () => {
     const service = makeFakeService()
     const app = await buildApp(service, { userRole: 'owner' })
     const res = await request(app)
       .post('/api/m/onboarding/finish')
-      .set('authorization', `Bearer ${AAL2_TOKEN}`)
+      .set('authorization', 'Bearer tok')
       .set('x-workspace-id', 'ws-1')
       .send({})
     expect(res.status).toBe(200)

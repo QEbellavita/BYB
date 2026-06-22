@@ -3,7 +3,6 @@ import { requireAuth, type RequireAuthDeps } from '../../middleware/require-auth
 import { authedWorkspaceRoute } from '../../middleware/authed-workspace.js'
 import type { RequireWorkspaceDeps } from '../../middleware/require-workspace.js'
 import { requireWorkspaceAdmin } from '../../middleware/require-workspace-admin.js'
-import { requireAAL2 } from '../../middleware/require-aal2.js'
 import { strictRateLimiter } from '../../middleware/rate-limit.js'
 import { StaleDraftError } from './service.js'
 import type { OnboardingService, OnboardingStore } from './types.js'
@@ -193,7 +192,9 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- POST /finish -----
-  router.post('/finish', strict, ...authWs(), adminGuard(), requireAAL2({ audit: deps.audit }), async (req, res) => {
+  // Onboarding runs before MFA enrollment (initial setup), so these stay aal1;
+  // AAL2 is enforced on post-setup sensitive routes (e.g. GET /api/audit).
+  router.post('/finish', strict, ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
@@ -207,7 +208,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- POST /retry/:id -----
-  router.post('/retry/:id', strict, ...authWs(), adminGuard(), requireAAL2({ audit: deps.audit }), async (req, res) => {
+  router.post('/retry/:id', strict, ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
