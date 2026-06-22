@@ -165,8 +165,17 @@ export function createApp(config?: AppConfig): express.Express {
     // Note: registerImprovementSubscriber called after stores are built below
 
     // ---- Risk module ----
+    // Per-request factory: each request gets a userScopedClient so Postgres RLS enforces tenant isolation.
+    // publish stays service-role (it owns the outbox/dispatch).
+    const makeRiskService = (token: string) =>
+      createRiskService({
+        store: supabaseRiskStore(userScopedClient(config, token)),
+        publish,
+        links,
+        linkStore: supabaseLinkStore(userScopedClient(config, token)),
+      })
+    // Service-role riskStore for the improvement subscriber (background event handler, not user-initiated).
     const riskStore = supabaseRiskStore(service)
-    const riskService = createRiskService({ store: riskStore, publish, links, linkStore })
 
     // ---- Complaints module ----
     const complaintsStore = supabaseComplaintsStore(service)
@@ -193,7 +202,7 @@ export function createApp(config?: AppConfig): express.Express {
     })
 
     const riskManifest = createRiskManifest({
-      service: riskService,
+      makeService: makeRiskService,
       auth: authDeps,
       workspace: workspaceDeps,
     })

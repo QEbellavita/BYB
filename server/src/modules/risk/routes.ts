@@ -31,20 +31,27 @@ function handleError(err: unknown, res: import('express').Response): void {
 // ---------------------------------------------------------------------------
 
 export interface RiskRouterDeps {
-  service: RiskService
+  /** Factory that produces a per-request RLS-scoped service from the bearer token. */
+  makeService: (token: string) => RiskService
   auth: RequireAuthDeps
   workspace: RequireWorkspaceDeps
 }
 
 export function createRiskRouter(deps: RiskRouterDeps): Router {
   const router = Router()
-  const { service, auth, workspace } = deps
+  const { makeService, auth, workspace } = deps
 
   const authWs = () => authedWorkspaceRoute({ auth, workspace })
+
+  function resolveService(req: import('express').Request): RiskService {
+    const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
+    return makeService(token)
+  }
 
   // GET /risks
   router.get('/risks', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const risks = await service.list(ctx)
       res.json({ risks })
@@ -56,6 +63,7 @@ export function createRiskRouter(deps: RiskRouterDeps): Router {
   // POST /risks
   router.post('/risks', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const row = await service.create(ctx, req.body)
       res.status(201).json(row)
@@ -67,6 +75,7 @@ export function createRiskRouter(deps: RiskRouterDeps): Router {
   // PUT /risks/:id
   router.put('/risks/:id', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const row = await service.update(ctx, req.params.id, req.body)
       res.json(row)
@@ -78,6 +87,7 @@ export function createRiskRouter(deps: RiskRouterDeps): Router {
   // POST /risks/:id/close
   router.post('/risks/:id/close', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const row = await service.close(ctx, req.params.id)
       res.json(row)
@@ -89,6 +99,7 @@ export function createRiskRouter(deps: RiskRouterDeps): Router {
   // POST /risks/:id/link-rule
   router.post('/risks/:id/link-rule', ...authWs(), async (req, res) => {
     try {
+      const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
       const { ruleId } = req.body as { ruleId: string }
       if (!ruleId) {
