@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "workspaces": ["server", "web"],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "npm run test --workspace server && npm run test --workspace web --if-present",
     "test:server": "npm run test --workspace server",

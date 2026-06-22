@@ -32,6 +32,12 @@ Set the cloud project's Auth redirect/site URL to the web service URL once known
 
 ## 1. Server service (Express API)
 
+- **Runtime requirement: Node 22+.** `@supabase/supabase-js` eagerly initialises its
+  realtime client, which throws on Node 20 (`Node.js 20 detected without native
+  WebSocket support`). The server builds a Supabase client on every request, so on
+  Node ≤21 it crashes at runtime. This is pinned via `engines.node: ">=22"` (root +
+  `server/package.json`) and `.nvmrc` — Railway/Nixpacks reads `engines.node` to pick
+  the Node version, so no manual setting is needed. Don't downgrade it.
 - **Config:** `server/railway.json` — `buildCommand: npm run build --workspace server`,
   `startCommand: npm run start --workspace server` (which runs `node dist/index.js`).
 - **Railway service settings:** Root Directory = repo root; Config-as-code path =
