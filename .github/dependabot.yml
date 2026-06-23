@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # npm — root covers the workspaces (server + web)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # batch low-risk dev tooling (vite/vitest/types/etc.) into one PR
+      dev-dependencies:
+        dependency-type: "development"
+    labels:
+      - "dependencies"
+      - "security"
+
+  # keep GitHub Actions pinned versions current
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"

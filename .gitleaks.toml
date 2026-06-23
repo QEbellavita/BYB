@@ -1,0 +1,18 @@
+# gitleaks config for Build the Guild (byb)
+# Extends gitleaks' default rule set; allowlists known non-secret test fixtures.
+title = "BYB gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures + example placeholders — verified not real secrets"
+# The integration tests create throwaway local users with this fixed password;
+# it is a test fixture, never a production credential.
+regexes = [
+  '''Test-pass-123456''',
+]
+# .env.example holds only placeholder strings (e.g. replace-with-local-anon-key).
+paths = [
+  '''\.env\.example$''',
+]
