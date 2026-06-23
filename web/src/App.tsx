@@ -40,7 +40,7 @@ export function App() {
 
   // Check MFA assurance level; if challenge needed, set mfa-challenge state.
   // Returns true if challenge is needed, false if we can proceed.
-  const checkMfa = useCallback(async (sess: Session, wsId: string | null): Promise<boolean> => {
+  const checkMfa = useCallback(async (sess: Session): Promise<boolean> => {
     try {
       const [aalResult, factorsResult] = await Promise.all([getAAL(), listFactors()])
       const aal = aalResult.data
@@ -52,8 +52,9 @@ export function App() {
           return true
         }
       }
-    } catch {
+    } catch (err) {
       // If MFA check fails, proceed without challenge
+      console.warn('checkMfa: failed, proceeding without challenge', err)
     }
     return false
   }, [])
@@ -105,7 +106,7 @@ export function App() {
         setAppState('signed-out')
       } else {
         const wsId = localStorage.getItem(WORKSPACE_KEY)
-        checkMfa(sess, wsId).then((challenged) => {
+        checkMfa(sess).then((challenged) => {
           if (!cancelled && !challenged) {
             resolveGate(sess, wsId).catch(() => {
               if (!cancelled) setAppState('onboarding')
@@ -129,7 +130,7 @@ export function App() {
         setSnapshot(null)
       } else {
         const wsId = localStorage.getItem(WORKSPACE_KEY)
-        checkMfa(sess, wsId).then((challenged) => {
+        checkMfa(sess).then((challenged) => {
           if (!cancelled && !challenged) {
             resolveGate(sess, wsId).catch(() => {
               if (!cancelled) setAppState('onboarding')
@@ -168,7 +169,7 @@ export function App() {
     if (!session) return
     const wsId = localStorage.getItem(WORKSPACE_KEY)
     // Re-check AAL; since we just verified, it should pass through
-    checkMfa(session, wsId).then((challenged) => {
+    checkMfa(session).then((challenged) => {
       if (!challenged) {
         resolveGate(session, wsId).catch(() => setAppState('onboarding'))
       }
@@ -228,7 +229,7 @@ export function App() {
     <Shell
       fetchMe={() => apiFetch<{ id: string; email: string | null }>('/api/me', session.access_token).catch((err: unknown) => {
         if (err instanceof MfaRequiredError) {
-          setAppState('mfa-challenge')
+          checkMfa(session).catch(() => setAppState('mfa-challenge'))
         }
         return Promise.reject(err) as never
       })}

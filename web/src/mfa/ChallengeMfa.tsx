@@ -44,7 +44,7 @@ export function ChallengeMfa({ factorId, onVerified }: Props) {
             autoComplete="one-time-code"
             maxLength={6}
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             placeholder="123456"
             style={{ fontSize: '1.25rem', padding: '0.5rem', marginTop: '0.5rem', width: '100%' }}
           />
