@@ -8,6 +8,13 @@ export class ApiError extends Error {
   }
 }
 
+export class MfaRequiredError extends Error {
+  constructor() {
+    super('MFA verification required')
+    this.name = 'MfaRequiredError'
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   token: string,
@@ -38,6 +45,9 @@ export async function apiFetch<T>(
       errorBody = await res.json()
     } catch {
       errorBody = null
+    }
+    if (res.status === 403 && (errorBody as { code?: string })?.code === 'mfa_required') {
+      throw new MfaRequiredError()
     }
     throw new ApiError(res.status, errorBody)
   }

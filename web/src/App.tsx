@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-import { apiFetch } from './api'
+import { apiFetch, MfaRequiredError } from './api'
 import { onboardingApi } from './onboarding/api'
 import type { OnboardingSnapshot, WorkspaceInfo } from './onboarding/types'
 import { OnboardingWizard } from './onboarding/OnboardingWizard'
 import { Login } from './Login'
 import { Shell } from './Shell'
 import { Landing } from './marketing/Landing'
+import { ChallengeMfa } from './mfa/ChallengeMfa'
+import { getAAL, listFactors } from './mfa/mfaApi'
 
-type AppState = 'auth-loading' | 'signed-out' | 'onboarding' | 'ready'
+type AppState = 'auth-loading' | 'signed-out' | 'mfa-challenge' | 'onboarding' | 'ready'
 
 const WORKSPACE_KEY = 'byb.workspaceId'
 
@@ -33,7 +35,28 @@ export function App() {
     () => localStorage.getItem(WORKSPACE_KEY),
   )
   const [snapshot, setSnapshot] = useState<OnboardingSnapshot | null>(null)
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null)
   const { route, go } = useHashRoute()
+
+  // Check MFA assurance level; if challenge needed, set mfa-challenge state.
+  // Returns true if challenge is needed, false if we can proceed.
+  const checkMfa = useCallback(async (sess: Session, wsId: string | null): Promise<boolean> => {
+    try {
+      const [aalResult, factorsResult] = await Promise.all([getAAL(), listFactors()])
+      const aal = aalResult.data
+      if (aal?.currentLevel === 'aal1' && aal?.nextLevel === 'aal2') {
+        const totpFactors = factorsResult.data?.totp ?? []
+        if (totpFactors.length > 0) {
+          setMfaFactorId(totpFactors[0].id)
+          setAppState('mfa-challenge')
+          return true
+        }
+      }
+    } catch {
+      // If MFA check fails, proceed without challenge
+    }
+    return false
+  }, [])
 
   // Resolve the onboarding gate once auth is known (authenticated users only).
   const resolveGate = useCallback(
@@ -82,8 +105,18 @@ export function App() {
         setAppState('signed-out')
       } else {
         const wsId = localStorage.getItem(WORKSPACE_KEY)
-        resolveGate(sess, wsId).catch(() => {
-          if (!cancelled) setAppState('onboarding')
+        checkMfa(sess, wsId).then((challenged) => {
+          if (!cancelled && !challenged) {
+            resolveGate(sess, wsId).catch(() => {
+              if (!cancelled) setAppState('onboarding')
+            })
+          }
+        }).catch(() => {
+          if (!cancelled) {
+            resolveGate(sess, wsId).catch(() => {
+              if (!cancelled) setAppState('onboarding')
+            })
+          }
         })
       }
     })
@@ -96,8 +129,18 @@ export function App() {
         setSnapshot(null)
       } else {
         const wsId = localStorage.getItem(WORKSPACE_KEY)
-        resolveGate(sess, wsId).catch(() => {
-          if (!cancelled) setAppState('onboarding')
+        checkMfa(sess, wsId).then((challenged) => {
+          if (!cancelled && !challenged) {
+            resolveGate(sess, wsId).catch(() => {
+              if (!cancelled) setAppState('onboarding')
+            })
+          }
+        }).catch(() => {
+          if (!cancelled) {
+            resolveGate(sess, wsId).catch(() => {
+              if (!cancelled) setAppState('onboarding')
+            })
+          }
         })
       }
     })
@@ -106,7 +149,7 @@ export function App() {
       cancelled = true
       sub.subscription.unsubscribe()
     }
-  }, [resolveGate])
+  }, [resolveGate, checkMfa])
 
   const handleWorkspaceCreated = useCallback((id: string) => {
     localStorage.setItem(WORKSPACE_KEY, id)
@@ -120,9 +163,28 @@ export function App() {
     setAppState('ready')
   }, [])
 
+  // Called after MFA challenge is verified — re-check AAL then proceed.
+  const handleMfaVerified = useCallback(() => {
+    if (!session) return
+    const wsId = localStorage.getItem(WORKSPACE_KEY)
+    // Re-check AAL; since we just verified, it should pass through
+    checkMfa(session, wsId).then((challenged) => {
+      if (!challenged) {
+        resolveGate(session, wsId).catch(() => setAppState('onboarding'))
+      }
+    }).catch(() => {
+      resolveGate(session, wsId ?? null).catch(() => setAppState('onboarding'))
+    })
+  }, [session, checkMfa, resolveGate])
+
   // Initial auth check — brief, before we know whether anyone is signed in.
   if (appState === 'auth-loading') {
     return <p>Loading BtG</p>
+  }
+
+  // MFA challenge — user has a factor enrolled but hasn't elevated to AAL2 this session.
+  if (appState === 'mfa-challenge' && session && mfaFactorId) {
+    return <ChallengeMfa factorId={mfaFactorId} onVerified={handleMfaVerified} />
   }
 
   // Signed-out: the marketing site + demo preview (no backend needed).
@@ -164,7 +226,12 @@ export function App() {
   // Ready — the real app.
   return (
     <Shell
-      fetchMe={() => apiFetch('/api/me', session.access_token)}
+      fetchMe={() => apiFetch<{ id: string; email: string | null }>('/api/me', session.access_token).catch((err: unknown) => {
+        if (err instanceof MfaRequiredError) {
+          setAppState('mfa-challenge')
+        }
+        return Promise.reject(err) as never
+      })}
       onSignOut={() => supabase.auth.signOut()}
       token={session.access_token}
       workspaceId={workspaceId ?? ''}
