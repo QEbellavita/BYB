@@ -3,14 +3,23 @@ on:
   push: { branches: [main] }
   pull_request:
 
+# Least privilege: the default GITHUB_TOKEN is otherwise broadly scoped.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'npm' }
+        with: { node-version: '22', cache: 'npm' }
       - run: npm ci
+      - name: Dependency audit (production deps — fail on high/critical)
+        # Gates the DEPLOYED attack surface. Dev/build tooling (vite/vitest/esbuild)
+        # is intentionally excluded (--omit=dev): it ships in no runtime artifact and
+        # its CVEs are tracked via Dependabot, not blocked here.
+        run: npm audit --omit=dev --audit-level=high
       - name: Unit tests (server + web)
         run: npm test
       - name: Build (server + web)
@@ -21,3 +30,20 @@ jobs:
         run: supabase start
       - name: RLS isolation gate (pgTAP)
         run: supabase test db
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # full history so a secret committed then removed is still caught
+      - name: Secret scan (gitleaks)
+        run: |
+          VERSION=8.18.4
+          BASE="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}"
+          TARBALL="gitleaks_${VERSION}_linux_x64.tar.gz"
+          # keep the original filename so it matches the entry in checksums.txt
+          curl -sSL "${BASE}/${TARBALL}" -o "${TARBALL}"
+          curl -sSL "${BASE}/gitleaks_${VERSION}_checksums.txt" -o checksums.txt
+          sha256sum -c --ignore-missing checksums.txt   # verify the downloaded binary before running it
+          tar -xzf "${TARBALL}" gitleaks
+          ./gitleaks detect --source . --config .gitleaks.toml --redact --exit-code 1
