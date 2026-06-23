@@ -100,8 +100,45 @@ describe('MFA Challenge gate in App', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /verify/i })).toBeInTheDocument()
     })
-    // Shell sign-out button should NOT be present
-    expect(screen.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument()
+    // ChallengeMfa sign-out escape hatch should be present
+    expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
+  })
+
+  it('Test A2: clicking sign out on ChallengeMfa calls supabase.auth.signOut', async () => {
+    const supabase = await getSupabaseMock()
+    const mfaApi = await getMfaApiMock()
+
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: { access_token: 'tok1', user: { id: 'u1' } } },
+      error: null,
+    } as never)
+
+    vi.mocked(mfaApi.getAAL).mockResolvedValue({
+      data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+      error: null,
+    } as never)
+
+    vi.mocked(mfaApi.listFactors).mockResolvedValue({
+      data: { totp: [{ id: 'factor-1', friendly_name: 'My Auth', status: 'verified' }] },
+      error: null,
+    } as never)
+
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null } as never)
+
+    vi.stubGlobal('fetch', makeCompletedWorkspaceFetch())
+    localStorageMock.setItem('byb.workspaceId', 'w1')
+    window.location.hash = '#/'
+
+    render(<App />)
+
+    // Wait for challenge screen and sign-out button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /sign out/i }))
+
+    expect(supabase.auth.signOut).toHaveBeenCalled()
   })
 
   it('Test B: entering code and submitting calls challengeAndVerify and shows Shell on success', async () => {

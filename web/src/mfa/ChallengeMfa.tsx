@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { challengeAndVerify } from './mfaApi'
+import { supabase } from '../supabase'
 
 interface Props {
   factorId: string
@@ -58,6 +59,13 @@ export function ChallengeMfa({ factorId, onVerified }: Props) {
           {loading ? 'Verifying…' : 'Verify'}
         </button>
       </form>
+      <button
+        type="button"
+        onClick={() => supabase.auth.signOut()}
+        style={{ marginTop: '1rem', background: 'none', border: 'none', color: '#555', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+      >
+        Sign out
+      </button>
     </div>
   )
 }

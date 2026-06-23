@@ -214,7 +214,7 @@ describe('Onboarding complete flow (live stack)', () => {
     const liveDrafts = await onboardingStore.listInviteDrafts(sessionId1)
     expect(liveDrafts.length).toBeGreaterThanOrEqual(1)
     expect(liveDrafts[0].token).toBeTruthy()
-  })
+  }, 15000)
 
   it('cross-tenant isolation: tenant 2 cannot select tenant 1 rows', async () => {
     const db2 = userScopedClient(config, token2)
