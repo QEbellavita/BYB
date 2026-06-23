@@ -50,7 +50,7 @@ export function EnrollMfa({ enrollTotp, challengeAndVerify }: EnrollMfaProps) {
             <p><strong>Manual key (keep private):</strong> <code>{secret}</code></p>
           </details>
           <label htmlFor="mfa-code">Code</label>
-          <input id="mfa-code" value={code} onChange={(e) => setCode(e.target.value)} />
+          <input id="mfa-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" maxLength={6} autoComplete="one-time-code" />
           <button onClick={handleVerify} disabled={loading}>Verify</button>
         </>
       )}

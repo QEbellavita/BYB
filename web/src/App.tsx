@@ -40,7 +40,7 @@ export function App() {
 
   // Check MFA assurance level; if challenge needed, set mfa-challenge state.
   // Returns true if challenge is needed, false if we can proceed.
-  const checkMfa = useCallback(async (sess: Session): Promise<boolean> => {
+  const checkMfa = useCallback(async (): Promise<boolean> => {
     try {
       const [aalResult, factorsResult] = await Promise.all([getAAL(), listFactors()])
       const aal = aalResult.data
@@ -54,7 +54,7 @@ export function App() {
       }
     } catch (err) {
       // If MFA check fails, proceed without challenge
-      console.warn('checkMfa: failed, proceeding without challenge', err)
+      console.warn('checkMfa: failed, proceeding without challenge')
     }
     return false
   }, [])
@@ -106,7 +106,7 @@ export function App() {
         setAppState('signed-out')
       } else {
         const wsId = localStorage.getItem(WORKSPACE_KEY)
-        checkMfa(sess).then((challenged) => {
+        checkMfa().then((challenged) => {
           if (!cancelled && !challenged) {
             resolveGate(sess, wsId).catch(() => {
               if (!cancelled) setAppState('onboarding')
@@ -130,7 +130,7 @@ export function App() {
         setSnapshot(null)
       } else {
         const wsId = localStorage.getItem(WORKSPACE_KEY)
-        checkMfa(sess).then((challenged) => {
+        checkMfa().then((challenged) => {
           if (!cancelled && !challenged) {
             resolveGate(sess, wsId).catch(() => {
               if (!cancelled) setAppState('onboarding')
@@ -165,17 +165,14 @@ export function App() {
   }, [])
 
   // Called after MFA challenge is verified — re-check AAL then proceed.
-  const handleMfaVerified = useCallback(() => {
-    if (!session) return
+  const handleMfaVerified = useCallback(async () => {
+    if (!session) { setAppState('signed-out'); return }
     const wsId = localStorage.getItem(WORKSPACE_KEY)
-    // Re-check AAL; since we just verified, it should pass through
-    checkMfa(session).then((challenged) => {
-      if (!challenged) {
-        resolveGate(session, wsId).catch(() => setAppState('onboarding'))
-      }
-    }).catch(() => {
-      resolveGate(session, wsId ?? null).catch(() => setAppState('onboarding'))
-    })
+    await supabase.auth.refreshSession()  // force JWT refresh so getAAL() sees aal2
+    const challenged = await checkMfa().catch(() => false)
+    if (!challenged) {
+      resolveGate(session, wsId).catch(() => setAppState('onboarding'))
+    }
   }, [session, checkMfa, resolveGate])
 
   // Initial auth check — brief, before we know whether anyone is signed in.
@@ -229,7 +226,7 @@ export function App() {
     <Shell
       fetchMe={() => apiFetch<{ id: string; email: string | null }>('/api/me', session.access_token).catch((err: unknown) => {
         if (err instanceof MfaRequiredError) {
-          checkMfa(session).catch(() => setAppState('mfa-challenge'))
+          checkMfa().catch(() => setAppState('mfa-challenge'))
         }
         return Promise.reject(err) as never
       })}
