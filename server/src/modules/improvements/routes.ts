@@ -78,7 +78,7 @@ export function createImprovementsRouter(deps: ImprovementsRouterDeps): Router {
     try {
       const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
-      const row = await service.update(ctx, req.params.id, req.body)
+      const row = await service.update(ctx, req.params.id as string, req.body)
       res.json(row)
     } catch (err) {
       handleError(err, res)
@@ -95,7 +95,7 @@ export function createImprovementsRouter(deps: ImprovementsRouterDeps): Router {
         res.status(400).json({ errors: { status: 'Required' } })
         return
       }
-      const row = await service.setStatus(ctx, req.params.id, status)
+      const row = await service.setStatus(ctx, req.params.id as string, status)
       res.json(row)
     } catch (err) {
       handleError(err, res)
