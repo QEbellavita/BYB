@@ -15,6 +15,21 @@ const fakeConfig: AppConfig = {
 }
 
 // ---------------------------------------------------------------------------
+// Token helpers — craft a real-shaped JWT with a specific aal claim so that
+// requireAuth can parse req.aal from the token payload (base64url segment 2).
+// ---------------------------------------------------------------------------
+
+function makeToken(aal: 'aal1' | 'aal2' | null): string {
+  const payload = aal ? { sub: 'user-1', aal } : { sub: 'user-1' }
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  // header.payload.sig — signature is ignored in unit tests (getUser is faked)
+  return `eyJhbGciOiJIUzI1NiJ9.${encoded}.fakesig`
+}
+
+const AAL2_TOKEN = makeToken('aal2')
+const AAL1_TOKEN = makeToken('aal1')
+
+// ---------------------------------------------------------------------------
 // Fake audit-log store builder
 // Captures the calls made so we can assert on limit / before filter
 // ---------------------------------------------------------------------------
@@ -88,7 +103,7 @@ function buildApp(rows: Record<string, unknown>[], capturedCalls: FakeStoreCall[
 // ---------------------------------------------------------------------------
 
 describe('GET /api/audit — admin gets entries', () => {
-  it('returns 200 with { entries, nextCursor } for an admin', async () => {
+  it('returns 200 with { entries, nextCursor } for an admin with aal2', async () => {
     const rows = [
       { id: 5, workspace_id: 'ws-1', actor: 'user-1', action: 'risk.created', created_at: '2024-01-01T00:00:00Z' },
       { id: 3, workspace_id: 'ws-1', actor: 'user-1', action: 'risk.updated', created_at: '2024-01-01T00:00:00Z' },
@@ -98,7 +113,7 @@ describe('GET /api/audit — admin gets entries', () => {
 
     const res = await request(app)
       .get('/api/audit')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(res.status).toBe(200)
@@ -106,13 +121,29 @@ describe('GET /api/audit — admin gets entries', () => {
     expect(res.body.entries).toHaveLength(2)
   })
 
-  it('returns nextCursor: null when entries is empty', async () => {
+  it('returns 403 mfa_required for an admin with aal1 (no MFA)', async () => {
+    const rows = [
+      { id: 5, workspace_id: 'ws-1', actor: 'user-1', action: 'risk.created', created_at: '2024-01-01T00:00:00Z' },
+    ]
+    const calls: FakeStoreCall[] = []
+    const app = buildApp(rows, calls)
+
+    const res = await request(app)
+      .get('/api/audit')
+      .set('authorization', `Bearer ${AAL1_TOKEN}`)
+      .set('x-workspace-id', 'ws-1')
+
+    expect(res.status).toBe(403)
+    expect(res.body).toMatchObject({ code: 'mfa_required' })
+  })
+
+  it('returns nextCursor: null when entries is empty (aal2)', async () => {
     const calls: FakeStoreCall[] = []
     const app = buildApp([], calls)
 
     const res = await request(app)
       .get('/api/audit')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(res.status).toBe(200)
@@ -153,7 +184,7 @@ describe('GET /api/audit — ?limit clamped to 200', () => {
 
     await request(app)
       .get('/api/audit?limit=999')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(calls[0]?.limit).toBe(200)
@@ -165,7 +196,7 @@ describe('GET /api/audit — ?limit clamped to 200', () => {
 
     await request(app)
       .get('/api/audit?limit=10')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(calls[0]?.limit).toBe(10)
@@ -177,7 +208,7 @@ describe('GET /api/audit — ?limit clamped to 200', () => {
 
     await request(app)
       .get('/api/audit')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(calls[0]?.limit).toBe(50)
@@ -191,7 +222,7 @@ describe('GET /api/audit — ?limit validation (400 for invalid values)', () => 
 
     const res = await request(app)
       .get('/api/audit?limit=-1')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(res.status).toBe(400)
@@ -204,7 +235,7 @@ describe('GET /api/audit — ?limit validation (400 for invalid values)', () => 
 
     const res = await request(app)
       .get('/api/audit?limit=foo')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(res.status).toBe(400)
@@ -219,7 +250,7 @@ describe('GET /api/audit — ?before cursor', () => {
 
     await request(app)
       .get('/api/audit?before=123')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(calls[0]?.before).toBe(123)
@@ -231,7 +262,7 @@ describe('GET /api/audit — ?before cursor', () => {
 
     await request(app)
       .get('/api/audit')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(calls[0]?.before).toBeUndefined()
@@ -245,7 +276,7 @@ describe('GET /api/audit — ?before validation (400 for invalid values)', () =>
 
     const res = await request(app)
       .get('/api/audit?before=foo')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(res.status).toBe(400)
@@ -258,7 +289,7 @@ describe('GET /api/audit — ?before validation (400 for invalid values)', () =>
 
     const res = await request(app)
       .get('/api/audit?before=-1')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(res.status).toBe(400)
@@ -271,7 +302,7 @@ describe('GET /api/audit — ?before validation (400 for invalid values)', () =>
 
     const res = await request(app)
       .get('/api/audit?before=0')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     expect(res.status).toBe(400)
@@ -309,18 +340,35 @@ describe('GET /api/audit — audit recorder wired through router', () => {
     expect(ev.workspaceId).toBe('ws-1')
   })
 
-  it('does NOT fire authz.denied when user is admin (owner role)', async () => {
+  it('does NOT fire authz.denied when user is admin with aal2 (owner role)', async () => {
     const { recorder, calls } = makeRecorder()
     const capturedCalls: FakeStoreCall[] = []
     const app = buildApp([], capturedCalls, 'owner', recorder)
 
     await request(app)
       .get('/api/audit')
-      .set('authorization', 'Bearer tok')
+      .set('authorization', `Bearer ${AAL2_TOKEN}`)
       .set('x-workspace-id', 'ws-1')
 
     await new Promise((r) => setTimeout(r, 10))
     const authzCalls = (calls as Array<Record<string, unknown>>).filter(e => e.action === 'authz.denied')
     expect(authzCalls).toHaveLength(0)
+  })
+
+  it('fires mfa.required audit event when admin has aal1', async () => {
+    const { recorder, calls } = makeRecorder()
+    const capturedCalls: FakeStoreCall[] = []
+    const app = buildApp([], capturedCalls, 'owner', recorder)
+
+    const res = await request(app)
+      .get('/api/audit')
+      .set('authorization', `Bearer ${AAL1_TOKEN}`)
+      .set('x-workspace-id', 'ws-1')
+      .set('x-request-id', 'req-aal1-test-1')
+
+    expect(res.status).toBe(403)
+    await new Promise((r) => setTimeout(r, 10))
+    const mfaCalls = (calls as Array<Record<string, unknown>>).filter(e => e.action === 'mfa.required')
+    expect(mfaCalls).toHaveLength(1)
   })
 })

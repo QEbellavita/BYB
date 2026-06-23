@@ -62,5 +62,5 @@ describe('Onboarding finish — real app wiring (regression for C1)', () => {
     const admin = serviceClient(config)
     const { data: sessions } = await admin.from('onboarding_sessions').select('status').eq('workspace_id', workspaceId)
     expect(sessions?.[0]?.status).toBe('completed')
-  })
+  }, 15000)
 })

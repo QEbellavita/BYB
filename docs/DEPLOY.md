@@ -80,6 +80,22 @@ from local files.)
 
 ---
 
+## MFA recovery (operational)
+
+If a user is locked out because they have lost access to their TOTP authenticator app:
+
+1. An operator with **service-role** or Supabase dashboard access navigates to:
+   **Supabase dashboard → Authentication → Users → [select user] → MFA factors → Remove factor**
+   (or uses the `auth.mfa_factors` table / `auth.admin` API with a service-role key to delete the row for that user's factor.)
+2. The user can then sign in at AAL1 (password only) and re-enroll a new TOTP device.
+
+**Notes:**
+- Only operators with service-role access can perform this reset — there is no self-service path in v1.
+- Self-service recovery codes are a tracked follow-up (would require custom hashed-code storage + verify flow; out of scope for SH-4).
+- Audit the reset manually in the Supabase dashboard logs or via the BYB audit log if a `mfa.factor_removed` event is added.
+
+---
+
 ## Notes / follow-ups
 
 - `vite preview` is a minimal static server — fine to start; for scale, serve the

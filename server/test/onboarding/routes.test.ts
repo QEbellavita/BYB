@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import express, { type Router } from 'express'
 import request from 'supertest'
 import type { OnboardingService, OnboardingStore, OnboardingSession, OnboardingSnapshot, FinishResult } from '../../src/modules/onboarding/types.js'
@@ -259,7 +259,7 @@ describe('GET /api/m/onboarding/session', () => {
 })
 
 describe('POST /api/m/onboarding/finish', () => {
-  it('returns 200 for owner and returns finish result', async () => {
+  it('returns 200 for owner with aal1 token (onboarding precedes MFA enrollment)', async () => {
     const service = makeFakeService()
     const app = await buildApp(service, { userRole: 'owner' })
     const res = await request(app)

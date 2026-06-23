@@ -192,6 +192,8 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
   })
 
   // ----- POST /finish -----
+  // Onboarding runs before MFA enrollment (initial setup), so these stay aal1;
+  // AAL2 is enforced on post-setup sensitive routes (e.g. GET /api/audit).
   router.post('/finish', strict, ...authWs(), adminGuard(), async (req, res) => {
     try {
       const session = await resolveStore(req).getSession(req.workspaceId!)

@@ -5,6 +5,8 @@ import { RiskPage } from './app/RiskPage'
 import { ComplaintsPage } from './app/ComplaintsPage'
 import { ImprovementsPage } from './app/ImprovementsPage'
 import { ModulePage } from './app/ModulePage'
+import { ManageMfa } from './mfa/ManageMfa'
+import { listFactors, unenroll, enrollTotp, challengeAndVerify } from './mfa/mfaApi'
 import './app/AppChrome.css'
 
 interface Me { id: string; email: string | null }
@@ -21,6 +23,7 @@ const NAV: NavItem[] = [
   { id: 'compliance', label: 'Compliance', code: 'I', group: 'modules' },
   { id: 'people', label: 'People & Roles', code: 'O', group: 'modules' },
   { id: 'reports', label: 'Insights', code: 'L', group: 'modules' },
+  { id: 'security', label: 'Security', code: 'SEC', group: 'core' },
 ]
 
 const MODULE_COPY: Record<string, { tagline: string }> = {
@@ -131,7 +134,10 @@ export function Shell({ fetchMe, onSignOut, token, workspaceId }: ShellProps) {
           {active === 'improvements' && (
             <ImprovementsPage token={token ?? ''} workspaceId={workspaceId ?? ''} />
           )}
-          {active !== 'hub' && active !== 'risk' && active !== 'complaints' && active !== 'improvements' && (
+          {active === 'security' && (
+            <ManageMfa listFactors={listFactors} unenroll={unenroll} enrollTotp={enrollTotp} challengeAndVerify={challengeAndVerify} />
+          )}
+          {active !== 'hub' && active !== 'risk' && active !== 'complaints' && active !== 'improvements' && active !== 'security' && (
             <ModulePage
               code={activeItem.code}
               name={activeItem.label}
