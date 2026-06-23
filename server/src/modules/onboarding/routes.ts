@@ -214,7 +214,7 @@ export function createOnboardingRouter(deps: OnboardingRouterDeps): Router {
       if (!session) { res.status(404).json({ error: 'no onboarding session found' }); return }
       await resolveService(req).retryInvitation(
         { workspaceId: req.workspaceId!, userId: req.user!.id, sessionId: session.id },
-        req.params.id
+        req.params.id as string
       )
       res.json({ ok: true })
     } catch (err) {

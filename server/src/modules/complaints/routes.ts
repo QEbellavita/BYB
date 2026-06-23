@@ -82,7 +82,7 @@ export function createComplaintsRouter(deps: ComplaintsRouterDeps): Router {
     try {
       const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
-      const row = await service.update(ctx, req.params.id, req.body)
+      const row = await service.update(ctx, req.params.id as string, req.body)
       res.json(row)
     } catch (err) {
       handleError(err, res)
@@ -94,7 +94,7 @@ export function createComplaintsRouter(deps: ComplaintsRouterDeps): Router {
     try {
       const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
-      const row = await service.resolve(ctx, req.params.id)
+      const row = await service.resolve(ctx, req.params.id as string)
       res.json(row)
     } catch (err) {
       handleError(err, res)

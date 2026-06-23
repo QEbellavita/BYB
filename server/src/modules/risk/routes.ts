@@ -77,7 +77,7 @@ export function createRiskRouter(deps: RiskRouterDeps): Router {
     try {
       const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
-      const row = await service.update(ctx, req.params.id, req.body)
+      const row = await service.update(ctx, req.params.id as string, req.body)
       res.json(row)
     } catch (err) {
       handleError(err, res)
@@ -89,7 +89,7 @@ export function createRiskRouter(deps: RiskRouterDeps): Router {
     try {
       const service = resolveService(req)
       const ctx = { workspaceId: req.workspaceId!, userId: req.user!.id }
-      const row = await service.close(ctx, req.params.id)
+      const row = await service.close(ctx, req.params.id as string)
       res.json(row)
     } catch (err) {
       handleError(err, res)
@@ -106,7 +106,7 @@ export function createRiskRouter(deps: RiskRouterDeps): Router {
         res.status(400).json({ error: 'ruleId is required' })
         return
       }
-      await service.linkRule(ctx, req.params.id, ruleId)
+      await service.linkRule(ctx, req.params.id as string, ruleId)
       res.json({ ok: true })
     } catch (err) {
       handleError(err, res)
