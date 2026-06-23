@@ -22,7 +22,8 @@ export function ManageMfa({ listFactors, unenroll, enrollTotp = defaultEnrollTot
       if (err || !data) { setError(err?.message ?? 'Failed to load'); return }
       setFactors(data.totp)
     })
-  }, [listFactors])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- listFactors is a stable module-level import; omitting it avoids an infinite-loop footgun if a future caller passes an unstable ref
+  }, [])
 
   async function handleDisable(factorId: string) {
     const { error: err } = await unenroll(factorId)

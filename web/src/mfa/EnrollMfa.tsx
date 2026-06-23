@@ -45,7 +45,10 @@ export function EnrollMfa({ enrollTotp, challengeAndVerify }: EnrollMfaProps) {
       {factorId && qrCode && (
         <>
           <img src={qrCode} alt="QR code for MFA setup" />
-          <p>{secret}</p>
+          <details>
+            <summary>Can't scan the QR? Enter this key manually</summary>
+            <p><strong>Manual key (keep private):</strong> <code>{secret}</code></p>
+          </details>
           <label htmlFor="mfa-code">Code</label>
           <input id="mfa-code" value={code} onChange={(e) => setCode(e.target.value)} />
           <button onClick={handleVerify} disabled={loading}>Verify</button>
