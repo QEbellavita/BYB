@@ -39,6 +39,9 @@ jobs:
       - name: Secret scan (gitleaks)
         run: |
           VERSION=8.18.4
-          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          BASE="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}"
+          curl -sSL "${BASE}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          curl -sSL "${BASE}/gitleaks_${VERSION}_checksums.txt" -o checksums.txt
+          sha256sum -c --ignore-missing checksums.txt   # verify the downloaded binary before running it
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks detect --source . --config .gitleaks.toml --redact --exit-code 1
