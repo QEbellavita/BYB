@@ -45,12 +45,21 @@ Set the cloud project's Auth redirect/site URL to the web service URL once known
 - **Environment variables:**
   | var | value |
   |-----|-------|
+  | `NODE_ENV` | `production` — **required**: enables HSTS and the strict-CORS production behaviour (without it, HSTS is not sent) |
   | `SUPABASE_URL` | Supabase Cloud project URL |
   | `SUPABASE_ANON_KEY` | anon public key |
-  | `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
-  | `CORS_ORIGIN` | the web service's public URL (e.g. `https://byb-web.up.railway.app`) |
+  | `SUPABASE_SERVICE_ROLE_KEY` | service_role key (server only — never on the web service) |
+  | `CORS_ORIGIN` | the web service's public URL, e.g. `https://byb-web-production.up.railway.app` — **required in prod** (the server warns at startup if unset/`*`). Comma-separate for multiple origins. |
   | `PORT` | set automatically by Railway — do not hardcode |
+- **Optional tuning** (sane defaults, override only if needed): `RATE_LIMIT_MAX` (100), `RATE_LIMIT_STRICT_MAX` (10), `RATE_LIMIT_WINDOW_MS` (60000), `BODY_LIMIT` (`64kb`), `TRUST_PROXY` (`1` — correct for Railway's single proxy; don't raise it or clients can spoof `X-Forwarded-For` to evade rate limits).
 - Health check path: `/health` (returns `{"status":"ok"}`).
+
+### MFA (SH-4) — enable on the Cloud project
+`supabase db push` applies **migrations only**, not `config.toml`. The local `[auth.mfa]` TOTP enablement is therefore NOT carried to the Cloud project — enable it there separately, either:
+- in the **Supabase dashboard** → Authentication → Sign In / Providers → **Multi-Factor Authentication** → enable **TOTP (Authenticator app)**, or
+- run `supabase config push` (pushes `config.toml`, incl. `[auth.mfa]` + refresh-token rotation) against the linked Cloud project.
+
+Without this, enrollment works in the UI but the Cloud project may reject TOTP factors. (Set the Auth **Site URL** to the web service URL while you're in the dashboard.)
 
 ## 2. Web service (Vite SPA)
 
