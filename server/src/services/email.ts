@@ -16,6 +16,26 @@ export function createEmailService(transport: EmailTransport) {
   }
 }
 
+/**
+ * Pick the email transport that matches the loaded email config.
+ * `console` (default) logs to stdout; `resend` delivers via the Resend API.
+ * Keeps the wiring in one place so `EMAIL_PROVIDER` actually takes effect.
+ */
+export function selectEmailTransport(cfg: {
+  provider: 'console' | 'resend'
+  resendApiKey?: string
+  from?: string
+  timeoutMs: number
+}): EmailTransport {
+  if (cfg.provider === 'resend') {
+    if (!cfg.resendApiKey || !cfg.from) {
+      throw new Error('[email] resend provider requires RESEND_API_KEY and EMAIL_FROM')
+    }
+    return createResendTransport({ apiKey: cfg.resendApiKey, from: cfg.from, timeoutMs: cfg.timeoutMs })
+  }
+  return consoleTransport
+}
+
 export function createResendTransport(opts: {
   apiKey: string
   from: string
