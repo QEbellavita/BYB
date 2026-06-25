@@ -29,7 +29,7 @@ import { registerImprovementSubscriber } from './modules/improvements/subscriber
 import { links } from './context/links.js'
 import { makePublish } from './events/publish.js'
 import { registerModules } from './modules/loader.js'
-import { consoleTransport, createEmailService } from './services/email.js'
+import { createEmailService, selectEmailTransport } from './services/email.js'
 import type { BootstrapWorkspace } from './modules/onboarding/routes.js'
 import { apiRateLimiter } from './middleware/rate-limit.js'
 import { createAuditService } from './services/audit.js'
@@ -81,7 +81,8 @@ export function createApp(config?: AppConfig): express.Express {
     )
 
     // ---- Email service ----
-    const emailService = createEmailService(consoleTransport)
+    // Transport is chosen from config (EMAIL_PROVIDER): console (default) or resend.
+    const emailService = createEmailService(selectEmailTransport(config.email))
 
     // ---- Bootstrap route — GET /api/onboarding/bootstrap ----
     // Queries the user's visible workspaces + onboarding status via their JWT-scoped client
