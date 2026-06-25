@@ -38,12 +38,12 @@ send them an invite, the email silently never arrives. Wiring a real SMTP provid
 | Email paths | Supabase Auth only | Supabase Auth **+** Express server app-invites (Part 5) |
 | Railway | `valiant-rejoicing` / `content-flexibility` | `diligent-enthusiasm` / `server` + `byb-web` |
 
-> **Heads-up (org-role ceiling — applies to BOTH projects):** the Supabase-side steps (Part 3) change
-> project Auth settings. Belinda is a **non-owner member** of Delilah's org, so the CLI
-> `supabase config push` returns 403 and the dashboard SMTP settings may be read-only for her.
-> **Delilah (org owner)** likely has to do Part 3 for each project — but Belinda can do *all* of
-> Part 1 + Part 2 herself (create the Resend account, verify each domain, generate the keys) and just
-> hand the keys + sender addresses to Delilah.
+> **Quick heads-up, Delilah (this applies to both projects):** the Supabase steps in Part 3 change
+> the project's Auth settings, and since I'm in your org as a member but not an owner, that part's
+> locked for me — the CLI throws a 403 and the SMTP settings in the dashboard are read-only on my
+> end. So you'll likely need to do Part 3 yourself for each project (it's quick, promise!). I'll take
+> care of everything in Part 1 and Part 2 — set up the Resend account, verify the domains, generate
+> the keys — and then just hand you the keys + sender addresses to drop in.
 
 ---
 
@@ -104,7 +104,7 @@ the plumbing works, then swap in the real domain before launch.
 
 ## Part 3 — Point Supabase Auth at Resend (SMTP)  *(owner / Delilah)*
 
-This is the step that needs org-owner access (Belinda's `config push` 403s). Do it in the
+This is the step that needs org-owner access — the one part I can't do myself (my `config push` 403s). Do it in the
 **Supabase Dashboard** for project **Cinder** (`swrxrtifmygripfxdemh`):
 
 1. **Authentication → Emails → SMTP Settings** → toggle **Enable Custom SMTP** on. Enter:
