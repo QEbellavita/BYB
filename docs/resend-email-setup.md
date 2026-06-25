@@ -6,7 +6,7 @@ confirmations) to *any* user — not just members of the Supabase org.
 This guide covers **two separate projects** that each need their own email setup:
 
 - **Cinder** — the network-marketer pipeline CRM (Supabase project `swrxrtifmygripfxdemh`).
-- **BYB** ("Build Your Business" — the AU/NZ business-OS, repo `byb-platform`, Supabase project
+- **BYB** ("Build Your Guild" — the AU/NZ business-OS, repo `byb-platform`, Supabase project
   `zoqhmsscpfsngatykuro`). BYB handles money + bank data and is held to a **bank-grade security
   standard**, so its email setup has extra hardening — see Part 5.
 
@@ -138,7 +138,7 @@ This is the step that needs org-owner access (Belinda's `config push` 403s). Do 
 
 ---
 
-## Part 5 — BYB ("Build Your Business") — a separate setup
+## Part 5 — BYB ("Build Your Guild") — a separate setup
 
 BYB is a **different project** (repo `byb-platform`, Supabase `zoqhmsscpfsngatykuro`, Railway
 `diligent-enthusiasm`). It is actively wiring email on branch `feat/pr1-resend-email`. Do **not**
