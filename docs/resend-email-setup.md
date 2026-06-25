@@ -1,5 +1,11 @@
 # Resend email setup (Cinder + BYB)
 
+> **What is Resend?** Resend is the email-*sending service* the apps plug into to deliver the email
+> they generate themselves — login codes, invites, password resets. It's developer infrastructure
+> (an API + SMTP), in the same family as SendGrid / Postmark / Amazon SES. It is **not** a marketing
+> tool like Mailchimp (campaigns, newsletters, drag-and-drop builders) — it's the behind-the-scenes
+> plumbing that makes "transactional" email actually arrive in the inbox.
+
 **Goal:** make the apps able to send real emails (login OTP codes, workspace invites, email
 confirmations) to *any* user — not just members of the Supabase org.
 
