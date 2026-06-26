@@ -155,7 +155,12 @@ export function createApp(config?: AppConfig): express.Express {
           await emailService.send(
             invite.email,
             'You have been invited to a workspace',
-            'You have been invited to join workspace {{workspaceId}}. Your invite token is {{token}}.',
+            '<div style="font-family:system-ui,Arial,sans-serif;font-size:15px;color:#111;line-height:1.5">'
+              + '<p>You have been invited to join a workspace on <strong>Build Your Guild</strong>.</p>'
+              + '<p>Your invite token is:</p>'
+              + '<p style="font-family:monospace;font-size:16px;background:#f4f4f5;padding:8px 12px;border-radius:6px;display:inline-block">{{token}}</p>'
+              + '<p style="color:#666;font-size:13px">Workspace: {{workspaceId}}</p>'
+              + '</div>',
             { workspaceId: invite.workspaceId, token: invite.token }
           )
         },
