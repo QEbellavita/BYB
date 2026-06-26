@@ -38,12 +38,12 @@ send them an invite, the email silently never arrives. Wiring a real SMTP provid
 | Email paths | Supabase Auth only | Supabase Auth **+** Express server app-invites (Part 5) |
 | Railway | `valiant-rejoicing` / `content-flexibility` | `diligent-enthusiasm` / `server` + `byb-web` |
 
-> **Who does what, Delilah:** you can set up **everything** in this guide yourself, for both
-> projects — it's all dashboard + DNS, no code. Parts 1–4 (Resend account, domain verification, API
-> keys, the Supabase Auth SMTP settings, and testing) and BYB's Parts 5a–5b are all yours. The only
-> part that isn't a setup step is the **coding part** — BYB's Express-server invite transport (Part
-> 5c) — and that's already written and merged, so there's nothing for you to code. Everything below
-> is a setup step you can do; the one code part (5c) is tagged and already done.
+> **Note — org-role ceiling (applies to both projects):** the Part 3 steps change the project's
+> Supabase Auth settings, which requires **org-owner** access. A non-owner member gets a 403 from
+> `supabase config push`, and the dashboard SMTP settings are read-only — so **Part 3 must be done by
+> the org owner**. Parts 1 and 2 (create the Resend account, verify the domains, generate the keys)
+> don't need owner access — do those first, then hand the keys + sender addresses to the owner to
+> complete Part 3.
 
 ---
 
@@ -102,9 +102,10 @@ the plumbing works, then swap in the real domain before launch.
    - `login@mail.cinder.app` (OTP/auth), or
    - `hello@cinder.app` (friendlier, single address for everything).
 
-## Part 3 — Point Supabase Auth at Resend (SMTP)  *(setup — yours)*
+## Part 3 — Point Supabase Auth at Resend (SMTP)  *(owner / Delilah)*
 
-Do this in the **Supabase Dashboard** for project **Cinder** (`swrxrtifmygripfxdemh`):
+This step requires org-owner access (`config push` returns 403 for non-owner members). Do it in the
+**Supabase Dashboard** for project **Cinder** (`swrxrtifmygripfxdemh`):
 
 1. **Authentication → Emails → SMTP Settings** → toggle **Enable Custom SMTP** on. Enter:
 
@@ -146,13 +147,14 @@ Do this in the **Supabase Dashboard** for project **Cinder** (`swrxrtifmygripfxd
 ## Part 5 — BYB ("Build Your Guild") — a separate setup
 
 BYB is a **different project** (repo `byb-platform`, Supabase `zoqhmsscpfsngatykuro`, Railway
-`diligent-enthusiasm`). Do **not** share Cinder's domain or keys — set BYB up independently. BYB also
-has **two** outbound-email paths, not one:
+`diligent-enthusiasm`). It is actively wiring email on branch `feat/pr1-resend-email`. Do **not**
+share Cinder's domain or keys — set BYB up independently. BYB also has **two** outbound-email paths,
+not one:
 
 1. **Supabase Auth** (login OTP / confirmations) — same mechanism as Cinder.
-2. **App-level invite emails sent by the Express server** — the real Resend transport is **already
-   built and merged to `main`** (it replaced the old console-only stub); it switches on via an env
-   var (5c). No code left to write — just configuration.
+2. **App-level invite emails sent by the Express server** — BYB's onboarding/invites currently use a
+   **console transport** (logs the email instead of sending it). Real invites need a real transport,
+   which is what the `feat/pr1-resend-email` branch is for.
 
 ### 5a. Resend — reuse the account, new domain + new keys
 
@@ -167,7 +169,7 @@ In the **same** Resend account (Part 1), do the following **separately for BYB**
    - `byb-app-invites` — used by the Express server's Resend transport (5c).
    Both with **Sending access** only.
 
-### 5b. BYB Supabase Auth SMTP  *(setup — yours)*
+### 5b. BYB Supabase Auth SMTP (owner / Delilah)
 
 Identical to Part 3, but in the dashboard for **project BYB (`zoqhmsscpfsngatykuro`)**:
 
@@ -180,32 +182,38 @@ Identical to Part 3, but in the dashboard for **project BYB (`zoqhmsscpfsngatyku
 | Sender email | `noreply@mail.<byb-domain>` |
 | Sender name | `BYB` (or the client-facing brand) |
 
-Apply the same three config fixes here too (the hosted project is on defaults until set): **OTP
-length** (match the app's OTP UI), **Site URL** → BYB's web URL (`byb-web-production.up.railway.app`
-or its custom domain, not `localhost`), and **email rate limit** (raise off the 2/hour custom-SMTP
-default).
+Apply the same three config fixes here too (BYB hits the **same non-owner org ceiling** as Cinder —
+hosted Auth is on defaults until Delilah sets them): **OTP length** (match the app's OTP UI), **Site
+URL** → BYB's web URL (`byb-web-production.up.railway.app` or its custom domain, not `localhost`), and
+**email rate limit** (raise off the 2/hour custom-SMTP default).
 
-### 5c. BYB Express server invite transport — *code (already done & merged)*
+### 5c. BYB Express server invite transport (`feat/pr1-resend-email`)
 
-This was the one **coding part**, and it's complete: BYB's Express server now has a real Resend
-transport (raw `fetch` to the Resend HTTP API, with a startup-validated config and a send timeout),
-selected at boot by an env var. **Nothing to code here.**
-
-The only thing left is **configuration** — set these env vars on the Railway `server` service to
-switch the server from the console stub to live Resend sending. Use the `byb-app-invites` key (**not**
-the Supabase-Auth one):
+BYB's invites are sent by the **Node/Express server**, not a Supabase edge function — so this path
+calls the **Resend HTTP API** (or the `resend` npm SDK) directly from the server, using the
+`byb-app-invites` key. Set it as a server env var on Railway (service `server`):
 
 ```
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=re_…                            # the byb-app-invites key
-EMAIL_FROM="BYB <noreply@mail.byb-domain>"     # must be on the verified BYB domain
-# EMAIL_TIMEOUT_MS=10000                        # optional, default 10000
+RESEND_API_KEY=re_…            # the byb-app-invites key (NOT the Supabase-Auth one)
+RESEND_FROM="BYB <noreply@mail.byb-domain>"
 ```
 
-Leave `EMAIL_PROVIDER` unset (or `console`) for local dev and the server logs invites instead of
-sending — so local runs don't need a live key. Bank-grade safety: the server **fails fast** at
-startup if `EMAIL_PROVIDER=resend` but `RESEND_API_KEY` or `EMAIL_FROM` is missing, so a misconfig
-can't silently swallow invites.
+Then replace the console transport with a Resend send (SDK shape):
+
+```ts
+import { Resend } from "resend";
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+await resend.emails.send({
+  from: process.env.RESEND_FROM!,        // must be on the verified BYB domain
+  to: [inviteeEmail],
+  subject: "You've been invited to BYB",
+  html: renderInviteEmail(invite),
+});
+```
+
+Keep the console transport as a **dev/test fallback** (when `RESEND_API_KEY` is unset) so local runs
+don't need a live key.
 
 ### 5d. Bank-grade hardening (BYB only)
 
