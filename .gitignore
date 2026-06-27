@@ -1,7 +1,10 @@
 node_modules/
 dist/
 .env
-.env.local
+.env.*
+**/.env
+**/.env.*
+!.env.example
 supabase/.branches/
 supabase/.temp/
 *.log
