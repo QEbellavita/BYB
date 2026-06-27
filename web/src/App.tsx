@@ -207,6 +207,9 @@ export function App() {
       return (
         <Login
           signInWithOtp={(email) => supabase.auth.signInWithOtp({ email })}
+          signInWithPassword={(email, password) =>
+            supabase.auth.signInWithPassword({ email, password })
+          }
           signInAsAdmin={signInAsAdmin}
           onBack={() => go('/')}
         />

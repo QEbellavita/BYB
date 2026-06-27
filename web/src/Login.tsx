@@ -4,15 +4,20 @@ import './Login.css'
 
 export function Login({
   signInWithOtp,
+  signInWithPassword,
   signInAsAdmin,
   onBack,
 }: {
   signInWithOtp: (email: string) => Promise<{ error: unknown }>
+  /** Optional email+password sign-in (e.g. for admin/tester accounts). */
+  signInWithPassword?: (email: string, password: string) => Promise<{ error: unknown }>
   /** Dev-only: one-click sign-in as the seeded admin tester. */
   signInAsAdmin?: () => Promise<{ error: unknown }>
   onBack?: () => void
 }) {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [mode, setMode] = useState<'otp' | 'password'>('otp')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -36,11 +41,20 @@ export function Login({
     setBusy(true)
     setErr(null)
     try {
-      const { error } = await signInWithOtp(email)
-      if (error) setErr('We couldn’t send that code. Check the address and try again.')
-      else setSent(true)
+      if (mode === 'password' && signInWithPassword) {
+        const { error } = await signInWithPassword(email, password)
+        if (error) setErr('That email and password didn’t match. Try again.')
+      } else {
+        const { error } = await signInWithOtp(email)
+        if (error) setErr('We couldn’t send that code. Check the address and try again.')
+        else setSent(true)
+      }
     } catch {
-      setErr('We couldn’t send that code. Check the address and try again.')
+      setErr(
+        mode === 'password'
+          ? 'That email and password didn’t match. Try again.'
+          : 'We couldn’t send that code. Check the address and try again.',
+      )
     } finally {
       setBusy(false)
     }
@@ -83,7 +97,9 @@ export function Login({
             <>
               <h1 className="auth__title">Welcome back to your<br />operating system.</h1>
               <p className="auth__lede">
-                Enter your work email and we’ll send a one-time code. No password to forget.
+                {mode === 'password'
+                  ? 'Enter your email and password to sign in.'
+                  : 'Enter your work email and we’ll send a one-time code. No password to forget.'}
               </p>
               <form className="auth__form" onSubmit={submit} noValidate>
                 <label htmlFor="email" className="auth__label">Email</label>
@@ -96,13 +112,44 @@ export function Login({
                   onChange={(e) => setEmail(e.target.value)}
                   className="auth__input"
                 />
+                {mode === 'password' && (
+                  <>
+                    <label htmlFor="password" className="auth__label">Password</label>
+                    <input
+                      id="password"
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="Your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="auth__input"
+                    />
+                  </>
+                )}
                 <div aria-live="polite">
                   {err && <p className="auth__err" role="alert">{err}</p>}
                 </div>
                 <button type="submit" className="btn btn--primary auth__submit" disabled={busy}>
-                  {busy ? 'Sending…' : <>Send code <span className="arrow">→</span></>}
+                  {busy
+                    ? mode === 'password' ? 'Signing in…' : 'Sending…'
+                    : mode === 'password'
+                      ? <>Sign in <span className="arrow">→</span></>
+                      : <>Send code <span className="arrow">→</span></>}
                 </button>
               </form>
+              {signInWithPassword && (
+                <button
+                  type="button"
+                  className="lp-link-btn auth__toggle-mode"
+                  onClick={() => { setMode(mode === 'password' ? 'otp' : 'password'); setErr(null) }}
+                  disabled={busy}
+                  style={{ marginTop: '0.75rem' }}
+                >
+                  {mode === 'password'
+                    ? '← Use a one-time email code instead'
+                    : 'Sign in with a password instead →'}
+                </button>
+              )}
               {signInAsAdmin && (
                 <button
                   type="button"
