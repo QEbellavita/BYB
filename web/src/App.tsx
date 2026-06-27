@@ -198,9 +198,16 @@ export function App() {
       )
     }
     if (route.startsWith('/signin')) {
+      const devEmail = import.meta.env.VITE_DEV_ADMIN_EMAIL as string | undefined
+      const devPassword = import.meta.env.VITE_DEV_ADMIN_PASSWORD as string | undefined
+      const signInAsAdmin =
+        import.meta.env.DEV && devEmail && devPassword
+          ? () => supabase.auth.signInWithPassword({ email: devEmail, password: devPassword })
+          : undefined
       return (
         <Login
           signInWithOtp={(email) => supabase.auth.signInWithOtp({ email })}
+          signInAsAdmin={signInAsAdmin}
           onBack={() => go('/')}
         />
       )

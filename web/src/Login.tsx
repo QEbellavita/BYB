@@ -4,15 +4,32 @@ import './Login.css'
 
 export function Login({
   signInWithOtp,
+  signInAsAdmin,
   onBack,
 }: {
   signInWithOtp: (email: string) => Promise<{ error: unknown }>
+  /** Dev-only: one-click sign-in as the seeded admin tester. */
+  signInAsAdmin?: () => Promise<{ error: unknown }>
   onBack?: () => void
 }) {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  const devLogin = async () => {
+    if (!signInAsAdmin) return
+    setBusy(true)
+    setErr(null)
+    try {
+      const { error } = await signInAsAdmin()
+      if (error) setErr('Admin tester sign-in failed. Did you run `npm run seed:admin`?')
+    } catch {
+      setErr('Admin tester sign-in failed. Did you run `npm run seed:admin`?')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,6 +103,17 @@ export function Login({
                   {busy ? 'Sending…' : <>Send code <span className="arrow">→</span></>}
                 </button>
               </form>
+              {signInAsAdmin && (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm auth__dev-login"
+                  onClick={devLogin}
+                  disabled={busy}
+                  style={{ marginTop: '1rem' }}
+                >
+                  ⚡ Dev: sign in as admin tester
+                </button>
+              )}
             </>
           )}
 
