@@ -16,7 +16,7 @@
     "test:int": "node --env-file=../.env ../node_modules/.bin/vitest run test/integration"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.109.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.5.2"
   },
